@@ -109,3 +109,138 @@ A JSON document that defines what a user/group is allowed to do
   - IAM Credentials Report
   - IAM Access Advisor
 - Never share IAM users & access keys
+# 5️⃣ EC2 Fundamentals
+## 🟥 OS
+- Linux 
+- Windows 
+- Mac OS
+## 🟥 Storage 
+- Network attached 
+  - EBS 
+  - EFS 
+- Hardware 
+  - EC2 Instance Store
+## 🟥 User Data (scripts) 
+- Bootstrap instances – launch commands when machine starts 
+  - Install updates 
+  - Install software 
+  - Download common files 
+- Runs as root user
+## 🟥 Instance Types (_Focus on names not examples_) 
+### Naming Convention
+- m5.2xlarg
+  - m (_instance class_)
+  - 5 (_generation, AWS imrpoves over time_)
+  - 2xlarge (_size within the instance class_)
+### Types
+- General Purpose 
+  - Great for diversity of workloads such as web servers 
+  - Balance between 
+    - Compute 
+    - Memory 
+    - Networking 
+- Compute Optimized 
+  - Batch processing workloads 
+  - Media transcoding 
+  - High performance web servers 
+  - High performance computing (HPC) 
+  - Scientific modeling & machine learning 
+  - Dedicated gaming servers 
+- Memory Optimized 
+  - High performance for in-memory databases (Business intelligence BI) 
+  - Distributed web scale cache stores 
+  - Real-time processing of big unstructured data 
+- Storage Optimized 
+  - High frequency online transaction processing (OLTP) 
+  - Data warehousing applications 
+  - Distributed systems
+## 🟥 Security Groups
+- Network security in AWS 
+- Control how traffic is allowed into or out of EC2 Instances 
+- Only contains "allow" keys 
+- Security groups can reference by IP or by security groups 
+- They regulate 
+  - Ports 
+  - IP ranges 
+  - Inbound network 
+  - Outbound network 
+- Components 
+  - Type – ex = HTTP 
+  - Protocol – ex = TCP 
+  - Port Range – ex = 80 
+  - Source – ex = 0.0.0.0/0 
+  - Description – ex = test http page 
+- Good to know 
+  - Can be attached to multiple instances 
+  - Locked down to a region / VPC 
+  - Good to maintain one separate security group for SSH access 
+  - All inbound is blocked by default 
+  - All outbound is authorized by default
+  - Any time you face a timeout trying to access an EC2 instance, check the Security Group
+  - Never enter your IAM security keys into an EC2 instance, anyone with access to the instance can retreive the keys
+    - Instead use IAM Roles
+- Classic Ports to know (_Important for exam_) 
+  - **3389** = RDP to login from a Windows instance
+  - **22** = SSH log into Linux instance + SFTP 
+  - **21** = FTP File Transfer Protocol 
+  - **80** = HTTP  
+  - **443** = HTTPS 
+- **NEVER** USE KEYS IN Instance Connect 
+  - Instead use/attach IAM Role to EC2 Instances
+## 🟥 EC2 Instance Purchasing Options 
+- On-Demand 
+  - Pay by second/hour 
+- Reserved 
+  - Reserve Instance Attributes 
+    - Type 
+    - Region 
+    - Tenancy 
+    - OS 
+  - Long Workloads 
+  - Specify period 
+  - Payment options 
+    - No upfront 
+    - Partial upfront 
+    - All upfront 
+  - Best for steady-stat (_database_) 
+- Convertible Reserved  
+  - Long workloads 
+  - Flexible instances 
+  - Change Instance Attributes 
+  - Less discount 
+- Saving 
+  - Discount based on type of usage (10$/hours for 3 years) 
+- Spot 
+  - Not suitable for critical jobs or databases (_important for exam_)
+  - Can lose instance at any point 
+  - Suitable for workloads with flexible start and end time 
+- Dedicated Host 
+  - A physical server with EC2 instance capacity fully dedicated to your use
+  - Address compliance requirements 
+  - Use existing server-bound software licenses 
+- Dedicated Instances 
+  - Instances run on hardware that is not shared 
+- Capacity Reservations 
+  - Reserve On-Demand instances so you always have access to capacity with no surprises 
+  - No time commitment and no discounts
+### 🏨 Hotel Purchasing Decision Examples
+- On-Demand
+  - Coming in and staying in resort whenever we like
+  - We pay the full price
+- Reserved
+  - Like planning ahead
+  - If we plan to stay for a long time, we may get a good discount
+- Saving Plans
+  - Pay a certain amount per hour for certain period
+  - Stay in any room type
+    - King
+    - Suit
+    - Sea View
+- Spot Instances
+  - Hotel allows people to bid for the empty rooms
+  - Highest bidder keeps the room
+  - Can get kicked out at any time
+- Diedicated Hosts
+  - We book an entire building of the resort
+- Capacity Reservations
+  - You book a room for a period with full price even you don't stay in it

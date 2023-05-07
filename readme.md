@@ -244,3 +244,66 @@ A JSON document that defines what a user/group is allowed to do
   - We book an entire building of the resort
 - Capacity Reservations
   - You book a room for a period with full price even you don't stay in it
+# 6️⃣ EC2 Instance Storage
+## 🟩 EBS (_Network Drives_)
+- Each volume can be attached to one instance except io1/io2 
+- Volume Types 
+  - Gp2/gp3 (SSD) balanced price/performance 
+    - **EBS IOPS peaks at 16,000 IOPS** 
+    - gp3 Can increase IOPS and Throughput **independantly** while in gp2 they are **linked together**
+  - io1/io2 (SSD) highest performance 
+    - Suits critical business applications 
+    - Databases workloads 
+    - **For over 32,000 to 64,000 IOPS we need Nitro EC2** 
+    - **EBS Muti-Attach**
+      - Attach same EBS to multiple EC2 **instances in the same AZ**
+      - **Up to 16 EC2 instances at the same time**
+      - Higher application availability 
+      - Application must manage concurrent write ops 
+  - st1 (HDD) low cost 
+  - sc1 (HDD) lowest cost 
+  - NOTE: **Only SSD can be used as boot volumes**
+- Snapshots
+  - Transfer EBS Volume from one AZ to another
+## 🟩 EC2 Instance Store (_Hardware Disk_) 
+- **Better I/O performance (IOPS of 310,000)**
+- **Ephemeral: lost on instance stop**
+- Good for buffer cache temporary  
+- Risk of Data loss 
+## 🟩 EFS: Elastic File System (_Managed File System_) 
+- **Works with EC2 instances in muti-AZ**
+- Highly available, scalable, expensive 
+- Use cases 
+  - CMS 
+  - Data sharing 
+  - WordPress 
+- Uses Security group to control access 
+- **Only Linux based AMI**
+- **Encryption at rest through KMS**
+- Standard file API 
+- **Scale**
+  - 1000s of concurrent NFS clients 
+  - Grow to petabyte-scale network file system, automatically 
+- **Performance Mode (_set at creation time_)**
+  - General Purpose: latency-sensitive use cases (web server, cms, etc..) 
+  - Max I/O: higher latency, throughput, highly parallel (big data, media processing) 
+- **Throughput mode**
+  - Bursting (1TB = 50MiB/s + burst of up to 100MiB/s) Scale with system file size 
+  - Provisioned: set throughput regardless of storage size 
+  - Elastic: automatically scale throughput up and down based on workload
+- **Storage Classes**
+  - Storage Tiers 
+    - Standard 
+    - Infrequent: (EFS-IA) 
+      - Lifecycle policy: if not used for n days, move to EFS-IA 
+  - Availability & durability 
+    - Regional: Multi-AZ, great for production 
+    - One Zone: great for dev, backup, compatible with IA
+## 🟩 AMI
+- AMIs are for specific regions, cannot use AMI in region A for region B
+### AMI Creation Process
+1. Start an EC2 instance
+2. Customize it
+3. Stop the instance (_for data integrity_)
+4. Build an AMI from this instance (_this will also create EBS snapshots_)
+5. Launch other EC2 instances from the created AMI

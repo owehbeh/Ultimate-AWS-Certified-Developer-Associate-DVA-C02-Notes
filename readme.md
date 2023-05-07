@@ -513,3 +513,253 @@ Update entire ASG based on a new launch template
 - At the end all instances will have the new launch configuration
 ### Notes
 - Creates new instances if existing ones get terminated for whatever reason like it becomes un healthy
+# 8️⃣ RDS + Aurora + ElasticCache
+## ⏹️ RDS: Relational Database Service
+### Supports
+- PostgreSQL 
+- MySQL 
+- MariaDB 
+- Oracle 
+- Microsoft SQL Server 
+- Aurora (AWS proprietary database)
+### Advantages
+- Automated provisioning & OS patching 
+- Backups 
+  - Automated 
+    - Daily 
+    - Transaction logs every 5 minutes 
+    - Can restore to any point in time because of transaction logs 
+    - 7 days retention can be increased to 35 days 
+  - Snapshots 
+    - Manually triggered 
+    - Retention of backups as long as you want 
+- Monitoring 
+- Read replicas (better performance) 
+- Multi AZ setup for DR (Disaster Recovery) 
+- Scaling vertically and horizontally 
+- Storage backed by EBS(gp2 / io1) 
+- **CANNOT USE SSH since it is managed**
+### RDS + ASG
+- Scale automatically, for example if 
+  - Free storage less than 10% 
+  - Low storage lasts at least 5 minutes 
+  - 6 hours have passed since last modification 
+- Maximum Storage Threshold (max limit for db storage)
+### Read Replicas
+- Scale your reads 
+- Up to 15 read replicas within 
+  - AZ (free) 
+  - Cross AZ (free) 
+  - Cross Region (costs replication fee) 
+- Asynchronous replication 
+  - Reads are eventually consistent 
+  - Might read old data that is not synced at the exact second of request 
+- Use case 
+  - Analytics app: reads from the read replica instead of overloading app DB
+- Notes 
+  - Can be promoted to their own DB 
+  - Applications must update connection string 
+  - Only for READ, cannot update, insert, delete
+### Multi AZ 
+- Disaster Recovery 
+- Synchronous replication 
+  - Replicate every single change  
+  - Replicated to other DB to be accepted 
+- One DNS name -> Automatic failover 
+- Increase availability 
+- Notes 
+  - Can read replicas be setup as Multi AZ for Disaster Recovery (DR) ? YES 
+### Single-AZ to Multi-AZ 
+- Zero downtime 
+- Click modify > enable multi-AZ
+### Encryption
+- At Rest 
+  - AWS KMS-AES-256  
+  - Defined at launch time 
+  - If master not encrypted, replicas cannot be encrypted 
+  - TDE: Transparent Data Encryption available for Oracle and SQL Server 
+- In-Flight 
+  - SSL 
+  - To enforce SSL 
+    - PostgreSQL: 
+      - Open AWS RDS Console (Parameter Groups) 
+      - rds.force_ssl=1 
+    - MySQL: 
+      - Within the DB 
+      - GRANT USAGE ON *.* TO 'mysqluser'@'%' REQUIRE SSL;
+### Encrypt RDS Backup 
+- Snapshot of un-encrypted = un-encrypted 
+- Snapshot of encrypted = encrypted 
+- Solution: Copy Snapshot into encrypted database 
+  - Create snapshot of un-encrypted 
+  - Copy snapshot 
+  - Enable Encryption of snapshot while copying 
+  - Restore database from encrypted snapshot 
+  - Migrate app from old to new database
+### Security 
+- Better deployed within private subnet not public ones 
+- Uses Security Groups, same as EC2 
+- Encryption at rest using KMS 
+- Encryption in flight using SSL 
+### Access Management 
+- IAM policies 
+- Username / Password 
+- IAM-based authentication 
+  - Token based login 
+  - Lasts 15 minutes 
+  - Works only with 
+    - MySQL 
+    - PostgreSQL 
+  - Benefits 
+    - SSL encryption 
+    - IAM managed users instead of DB 
+    - Leverage IAM Roles and EC2 instance profiles 
+### AWS Responsibility 
+- No SSH access 
+- No manual DB patching 
+- No manual OS patching 
+- No way to audit underlying instance
+## ⏹️ Aurora
+- Supports PostgreSQL and MySQL 
+- Claim 3x-5x performance improvement 
+- Starts at 10GB maxes to 128TB 
+- Can have 15 replicas vs MySQL has 5   
+- Instant failover, faster than multi-AZ 
+- Supports cross-region replication 
+- Backtrack: restore data at any point of time without using backups 
+- High Availability 
+  - 6 copies across 3 AZ (without replicas) 
+    - 4/6 needed for writes 
+    - 3/6 needed for reads 
+    - Self-healing peer-to-peer replication 
+    - Storage striped across 100s of volumes 
+  - Each Aurora Instance accepts writes (master) 
+  - Failover < 30 secs  from Master to Read Replicas 
+- DB Cluster 
+  - Writer Endpoint 
+    - Points to master 
+    - On failovers it updates automatically 
+  - Reader Endpoint 
+    - Connection load balancer 
+    - Connects automatically to all Read Replicas 
+  - One Master 
+  - 1-15 Read Replicas 
+  - 10GB-128TB 
+- Security 
+  - Same as RDS
+## ⏹️ RDS Proxy
+### Why use it?
+- Allow application to pool and share a database 
+- Improve database efficiency by reducing stress on database resources (_CPU & RAM_)
+- Minimize the open connections and timeout
+- Reduce failover time to to 60% 
+- Enforce IAM authentication using secrets manager
+- Specify percentage of pool to Lambda Functions so the y won't overload connections to database
+### Supports
+- MysQL
+- PosgresSQL
+- MariaDB
+- Microsoft SQL Server
+- Aurora
+  - MySQL
+  - PostgreSQL
+### Notes
+- Only accessible from within VPC not to the public internet
+## ⏹️ElastiCache 
+- Managed Redis or Memcached 
+  - In-memory databases with high performance low latency 
+- Reduce read loads from database 
+- Make app stateless 
+- Sample process #1 
+  - App > cache >  
+    - Found > return 
+    - Not found > fetch from db > write to cache 
+  - Make sure cache is uptodate 
+- Sample process #2 
+  - Save user session to cache 
+  - User calls another instance 
+  - User still logged in cause session is fetched from cache 
+- Redis 
+  - Multi AZ 
+  - Auto failover 
+  - Read replicas (HA) : 0-5 
+  - Data durability 
+  - Backup/restore 
+- Memcached 
+  - Multi-node partitioning of data (sharding) 
+  - No HA (Replication) 
+  - No persistence 
+  - NO backup/restore 
+  - Multi-threaded
+### Strategies
+- **Lazy loading**: (Cache-aside/Lazy population) 
+  - Sample process #1 
+    1. Cache hit
+    2. Result Returned
+  - Sample process #2
+    1. Cache miss
+    2. Read from DB
+    3. Write to cache
+  - Pros 
+    - Only requested data is cached 
+    - Node failures are not fatal 
+  - Cons 
+    - Cache miss penalty result in 3 round trips 
+    - Stale data: data can be outdated 
+- **Write Through**: Add/Update cache when db is updated 
+  - Process: 
+    - Write to db 
+      - Write to cache as well 
+    - Read from cache > return 
+  - Pros: 
+    - No stale data = fast reads 
+    - Write vs Read penalty (users expect read to take less time) 
+  - Cons: 
+    - Missing data until it is cached 
+    - Cache chrun, a lot of data will never be read 
+- **Cache Eviction + TTL** (Time-to-live) 
+  - Options 
+    - Delete items explicitly 
+    - Evict cache on full memory (LRU) 
+    - Set an item time-to-live (TTL)
+- Types 
+  - Cluster Mode Disabled 
+    - One primary node, 0-5 replicas 
+    - Asynchronous replication 
+    - Primary node used for R/W 
+    - Other nodes are read-only 
+    - One shard, all nodes have all the data 
+    - Guard against data loss 
+    - Multi-AZ enabled for failover 
+  - Cluster Mode Enabled 
+    - Data partitioned across shards 
+    - Each shard has primary and 0-5 replicas 
+    - Multi-AZ enabled for failover 
+    - Up to 500 nodes per cluster 
+    - 0 replicas: 500 shards  
+    - 1 replica: 250 shards 
+    - 5 replicas: 83 shards
+- Implementation consideration 
+  - Data might be outdated 
+  - Is it effective? 
+    - Pattern: data changing slowly 
+    - Anti-patterns: data changing rapidly 
+  - Is data  structured well 
+    - Key/value? 
+    - Caching aggregation results?
+## ⏹️ Amazon MemoryDB for Redis
+A Database with Redis compatible API
+### What is it?
+- Ultra fast performance (_over 160M request/sec_)
+- In-memory data with multi-AZ transaction log
+- Scales seamlessly
+### Usecases
+- Web/Mobile apps
+- Online gaming
+- Media streaming
+### Example
+- You have a lot of microservices and you need access to Redis compatible in-memory database
+- Use memoryDB for Redis
+- Get ultra fast in-memory speed
+- Multiple AZ deployment
+- Access to fast recovery and data

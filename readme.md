@@ -898,4 +898,123 @@ HTTP health checks are only for public resources
 ## 🟧 3rd Party Domain Registrar 
 ### Process 
 1. Create a Hosted Zone in Route 53 
-2. Update NS Records on 3rd party website to user Route 54 Name Servers 
+2. Update NS Records on 3rd party website to user Route 54 Name Servers
+# 1️⃣0️⃣ VPC Fundamentals
+## 🟦 VPC 
+- Virtual Private Cloud 
+- A regional resource 
+  - Two AWS regions 
+  - Have two VPCs 
+- **Can have multiple subnets**
+## 🟦 Subnets 
+- Allows to partition network inside VPC (AZ resouce) 
+- To define access between private and public we use **Route Tables**
+- Types 
+  - Public (_through Internet Gateway_)
+    - Can access www 
+    - Can be accessed by www 
+  - Private 
+    - Not accessible from the internet
+## 🟦 Internet Gateways 
+- Helps VPC connect to the internet 
+- Public Subnets have route to internet gateway
+## 🟦 NAT Gateways 
+- Are AWS-managed 
+- Allow instances of Private Subnets to access internet while remaining private
+## 🟦 NAT Instances 
+- Are Self-managed
+## 🟦 Network ACL
+- Also called **NACL** 
+- Firewall which **ALLOW / DENY** traffic from & to subnet 
+- **Rules only include IP addresses**
+- Are attached at the **Subnet level**
+## 🟦 Security Groups 
+- A **firewall** that controls traffic from & to **ENI** (Elastic Network Interface) / EC2 instance 
+- Can only have **ALLOW** rules 
+- **Rules include IP Addresses and other security groups**
+## 🟦 VPC Flow Logs 
+- Capture information about IP Traffic  
+  - VPC logs 
+  - Subnet logs 
+  - Elastic Network Interface (ENI) logs 
+- Logs data can be sent to S3 / CloudWatch Logs 
+- Use cases
+  - **Monitor & troubleshoot connectivity**
+## 🟦 VPC Peering 
+- Two VPC privately use AWS network 
+- Make them behave as if they are on same network 
+- CIDR (IP Address range) must not have overlapping 
+- Is NOT transitive (must be created for each two VPCs that need to be on same network) 
+  - A & B: VPC Peering AB 
+  - B & C: VPC Peering BC 
+  - A & C: VPC Peering AC 
+## 🟦 VPC Endpoints (_very Important for test_) 
+- Allow to connect to AWS services using a private network instead of www network
+  - AWS Services communicate through public internet
+  - **When needing private access from within VPC to AWS service**
+  - Create a VPC Endpoint
+- **Endpoint Gateway** only supports
+  - S3 
+  - DynamoDB 
+- Endpoint Interface
+  - Everything else like CloudWatch 
+## 🟦 Site to Site VPN 
+- Connect an on-premises VPN to AWS 
+- Connection is auto encrypted 
+- Goes over public internet 
+- Cannot access VPC Endpoints
+## 🟦 Direct Connect 
+- Establish physical connection between on-premises and AWS 
+- Connection is private, secure, fast 
+- Goes over pricate network 
+- Takes a month to establish
+- Cannot access VPC Endpoints
+## 🟦 3-Tier-Solution Architecture
+1. Public Subnet
+    - Route 53
+    - ELB
+2. Private Subnet
+    - ALB
+3. Data Subnet
+    - ElastiCache
+      - Session Data
+      - Cached Data
+    - Amazon RDS
+      - Read
+      - Write
+## 🟦 LAMP Stack on EC2
+1. Linux
+    - OS for EC2 instances
+2. Apache
+    - Web Server that runs on Linux (_EC2_)
+3. MySQL
+    - Database on RDS
+4. PHP
+    - Application logic (_running on EC2_)
+### Optional
+- Can add Redist / Memcached (ElastiCache) to include a caching tech
+- To store local app data
+  - EBS drive (_root_)
+## 🟦 Cheat Sheet
+### VPC
+Virtual Private Cloud
+### Subnets
+Tied to an AZ, network partition of the VPC
+### Internet Gateway
+At the VPC level, provide Internet Access
+### NAT Gateway / Instances
+Give internet access to private subnets
+### NACL
+Stateless, subnet rules for inbound and outbound
+### Security Groups
+Stateful, operate at the EC2 instance level or ENI
+### VPC Peering
+Connect two VPC with non overlapping IP ranges, non transitive
+### VPC Endpoints
+Provide private access to AWS Services within VPC
+### VPC Flow Logs
+Network traffic logs
+### Site to Site VPN
+VPN over public internet between on-premises DC and AWS
+### Direct Connect
+Direct private connection to a AWS

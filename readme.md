@@ -1220,4 +1220,105 @@ Direct private connection to a AWS
     - Deep Archive Access
       - Optional
       - Configurable from 180-700+ days
-  ### Amazon S3 Lifecycle Configurations
+# 1️⃣2️⃣ AWS CLI, SDK, IAM Roles & Policies
+## 🔶 CLI
+- Command: `--dry-run` simulates API call to save resources
+## 🔶 CLI STS Decode Errors
+- Command: `sts decode-authorization-message –encoded-message <message_value>` decodes error messages 
+## 🔶 EC2 Instance Metadata 
+-  Allows EC2 instances to learn about themselves **without using an IAM Role for that purpose**
+- Can retreive IAM role name
+- Cannot retrieve IAM Policy 
+- IMDSv1
+  - **URL: http://169.254.169.254/latest/meta-data/** 
+- IMDSv2
+  - Get Session Token (_limited validity_) (_using headers & PUT_)
+  - Use Session Token in IMDSv2 calls (_using headers_)
+- Note
+  - Metadata: Info about EC2 instance 
+  - Userdata: launch script of the EC2 instance 
+  - **When URL ends with a slash / it means there is more to it or it is a value** 
+## 🔶 CLI Profiles
+- Problem
+  - Managing multiple accounts 
+- Solution
+  - Configure profile to use in CLI instead of the default one 
+- Command 
+  - Create: `aws configure –profile <profile_name>` 
+  - Use: `aws s3 ls –profile <profile_name>`
+## 🔶 MFA with CLI
+- Create temp session 
+- Run **STS GetSessionToken** API (_important_)
+- Command: **aws sts get-session-token –serial-number <arn_of_mfa_device> --token-code <code_from_token> --duration-seconds 3600** 
+## 🔶 SDK
+- Should know when we should use an SDK 
+- If you don't specify a region or configure a default region, us-east-1 will be chosen by default 
+## 🔶 Limits
+### API Rate Limit 
+- DescribeInstances: (for EC2) 100/sec 
+- GetObject: (S3) 5500/sec/prefix 
+- **For Errors**
+  - Intermittent: Implement **Exponential Backoff** 
+    - **Use when we get a throttling exception**
+      - Implemented by default in SDK
+      - Have to implement it manually if using AWS API
+    - **ONLY implement retries on 5xx server errors** 
+    - **DON'T implement on 4xx errors**
+  - Consistent: Request API throttling limit increase 
+### Service Quotas (_Service LImits_) 
+- Running On-Demand Standard Instances: 1152 vCPU 
+- Can  
+  - Request service limit increase by opening a ticket 
+  - Request a service quota increase by using Service Quotas API 
+## 🔶 Credentials Provider Chain (_may come in one question_) (_important_)
+### CLI: will look for credentials **in this order**
+1. Command line options 
+    - --region 
+    - --output 
+    - --profile 
+2. Environment variables 
+    - AWS_ACCESS_KEY_ID 
+    - AWS_SECRET_ACCESS_KEY 
+    - AWS_SESSION_TOKEN 
+3. CLI credentials file 
+    - Max & Linux: aws configure ~./aws/credentials 
+    - Windows: C:\Users\user\.aws\credentials 
+4. CLI configuration file 
+    - Max & Linux: aws configure ~./aws/config 
+    - Windows: C:\Users\user\.aws\config 
+5. Container credentials 
+    - for ECS tasks 
+6. Instance profile credentials 
+    - for EC2 Intstance Profiles 
+
+### SDK: will look for credentials in this order (Java examples) 
+- Java system properties 
+  - Aws.accessKeyId 
+  - Aws.secretKey 
+- Environment variables 
+  - AWS_ACCESS_KEY_ID 
+  - AWS_SECRET_ACCESS_KEY 
+- Default credential profiles file 
+  - At ~/.aws/credentials shared by many SDK 
+- Amazon ECS container credentials 
+  - For ECS containers 
+- Instance profile credentials used on EC2 instaces 
+## 🔶 Credentials Best Practices
+- NEVER STROE AWS CREDENTIALS IN CODE
+- Inherit credentials from the credentials chain 
+- Working within AWS, use IAM Roles 
+  - EC2 Instances = EC2 Instances Roles 
+  - ECS tasks = ECS Roles 
+  - Lambda functions = Lambda Roles 
+- Working outside AWS 
+  - Environment variables 
+  - Named Profiles 
+## 🔶 Signing AWS API Request
+- SDK / CLI : Signed by default 
+- Other requests should sign the request **using Signature v4 (SigV4)**
+- SigV4 signing request options 
+  - HTTP Header
+    - In Authorization Header
+  - Query String
+    - Include the signature in the URL
+    - query param is `X-Amz-Signature`

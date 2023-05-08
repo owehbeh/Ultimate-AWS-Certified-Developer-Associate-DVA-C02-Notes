@@ -1018,3 +1018,206 @@ Network traffic logs
 VPN over public internet between on-premises DC and AWS
 ### Direct Connect
 Direct private connection to a AWS
+# 1️⃣1️⃣ Amazon S3
+## 🟫 Buckets
+- Must have globally unique name 
+- Defined at region level 
+- Naming convention 
+  - No uppercase 
+  - No underscore 
+  - 3-63 characters long 
+  - Not an IP 
+  - Must start with 
+    - Lower case 
+    - Number
+## 🟫 Objects 
+- Key is the full path 
+  - EX1: s3://my-buckeet/my_file.txt 
+  - EX2: s3://my-bucket/my_folder/other_folder/my_file.txt 
+- Key is composed of  
+  - Prefix: my_folder/other_folder/ 
+  - Object name:my_file.txt 
+- **Limits** 
+  - Max size is 5000GB 
+  - Max upload size is 5GB, for bigger sizes one must use multi-part upload 
+- Metadata 
+  - List of key/value pairs 
+  - Useful for system of user metadata 
+- Tags – maximum 10 
+  - Unicode key/value pairs 
+  - Useful for security / lifecycle 
+- Version ID
+## 🟫 Versioning (_important_)
+- Enabled at bucket level 
+- Same key overwrite will increment the version 
+- Any non-versioned file prior to enabling versioning will have version "null" 
+- Suspending versioning does not delete previous versions 
+- Use cases 
+  - Protects against unintended deletes 
+  - Easy roll back to previous version
+## 🟫 Encryption (_Can be set on bucket level or object level_)
+- SSE-S3: using keys & hanAES-256dled by AWS 
+  - AES-256 
+  - Set Header: "x-amz-server-side-encryption":"AES256" 
+- SSE-KMS: AWS Key Management Service to manage encryption keys 
+  - User control 
+  - Audit Trail 
+  - Set Header: `"x-amz-server-side-encryption":"aws:kms"` 
+- SSE-C: Manage your own encryption keys 
+  - S3 does not store the encryption keys 
+  - Key must bbe provided in HTTPS headers for every request 
+- Retrieving need to provide the key used on uploading the object 
+- Client Side Encryption 
+  - Encrypt before sending to S3 
+  - Decrypt after retrieving from S3
+## 🟫 Security
+### User based 
+- IAM Policies 
+- Can access object if 
+  - IAM permission ALLOW 
+  - OR Resource policy ALLOW 
+  - AND there is no explicit DENY on the user 
+### Resource Based 
+- **Bucket Policies**: JSON based – allows cross account 
+  - Resource: Buckets & Objects 
+  - Actions: Set of API to Allow / Deny 
+  - Effect: Allow / Deny 
+  - Principal: Account of user to apply policy to 
+  - Use Case 
+    - Grant public access to the bucket 
+    - Force objects to be encrypted at upload 
+    - Grant access to another account (Cross Account) 
+- Object Access Control List – finger grain 
+- Bucket Access Control List – less common 
+### Block Public Access 
+- Can be set at account level 
+- Options 
+  - New access control lists 
+  - Any access control list 
+  - New public bucker or access point policies 
+- Use case 
+  - Prevent company data leaks 
+### Other 
+- Networking 
+  - Supports VPC Endpoints, for instances in VPC without www internet 
+- Logging and Audit 
+  - S3 Access Logs can be stored in S3 bucket 
+  - API calls can be logged in AWS CloudTrail 
+- User Security 
+  - MFA Delete: multi factor authentication can be required in versioned buckets to delete objects 
+  - Pre-signed URLs: only valid for a limited time 
+    - Ex: premium video service for logged in users
+## 🟫 Websites
+- Host static websites 
+- URL 
+  - `[bucket-name].s3-website-[aws-region].amazonaws.com`
+## 🟫 CORS
+- An origin is 
+  - A scheme (protocol) 
+  - A host (domain) 
+  - A Port 
+  - EX: https://www.example.com 
+- If a client does cross-origin request on our S3 bucket, we need to enable the correct CORS headers
+- Have to set the CORS headers on the accessed bucket website not the one requesting it 
+### 🟫 Consistency Model 
+- After  
+  - Successful write of new object (new PUT) 
+  - Overwrite or delete of existing object (overwrite PUT or DELETE) 
+- Any 
+  - Subsequent read requests receives latest version of the object 
+  - Subsequent list immediately reflects changes
+### 🟫 Replication
+- CRR - (_Cross Region Replication_)
+  - We have an S3 bucket in one region and a target S3 bucket in another region
+  - We want to setup async replication between two buckets
+  - Use cases
+    - Compliance
+    - Lower latency access to date
+    - Replication accross accounts
+- SRR - (_Same Region Replication_)
+  - Use cases
+    - Aggregate logs accross multiple S3 buckets
+    - Perform live replication between production and test accounts
+- Process
+  - Enable versioning in 
+    - Source buckets
+    - Destination buckets
+  - Give proper IAM permission to the S3 service to read/write from S3 buckets
+- Notes
+  - Only new objects will be replicated
+  - To replicate existing objects you have to use **S3 Batch Replication** Feature
+    - It replicates existing object and previous failed replicate object
+  - In case we have delete replications we can choose to include them in replication
+  - If there is a deletion with a version ID they will not be replicated to avoid malicous delete happening from one bucket to another
+  ## 🟫 Storage Classes (_to understand not to remember the numbers_)
+  ### Amazon S3 Standard
+  - General Purpose
+    - Pros
+      - Sustain 2 concurrent facility failures (_2 AZ can fail and we will still have a running S3 instance_)
+      - Low latency
+      - High throughput
+    - Use cases
+      - Frequently accessed data
+      - Big Data analytics
+      - Mobile & Gaming Apps
+      - Content Distribution
+  - Infrequent Access (_IA_)
+    - Pros
+      - Lower cost
+      - Cost on retrieval
+    - Use cases
+      - Disaster recovery
+      - Backups
+  ### Amazon S3 One Zone
+  - Infrequent Access
+    - Pros
+      - High Durability
+    - Cons
+      - Single AZ
+      - Data lost when AZ is destroyed
+    - Use cases
+      - Secondary backup copies
+      - Data you can recreate (_thumbnails_)
+  ### Amazon S3 Glacier
+  - Instant Retrieval
+    - Use cases
+      - Backup but needs to be Milliseconds (_fast_) retrieval
+      - Minimum storage duration: 90 days (_if deleted before you will be charged for the 90 days_)
+  - Flexible Retrieval
+    - Flexibilities
+      - Expedited (_1 - 5 minutes_)
+      - Standard (_3 - 5 hours_)
+      - Bulk (_5 - 12 hours_) (_free_)
+    - Minimum storage duration: 90 days
+  - Deep Archive (_long term storage_)
+    - Flexibilities
+      - Standard (_12 hours_)
+      - Bulk (_48 hours_)
+    - Minimum storage duration: 180 days
+  - Pros
+    - Low cost
+  - Pricing
+    - Price for storage
+    - Object retrieval cost
+  ### Amazon S3 Intelligent Tiering
+  - Pros
+    - Move Objects automatically between Access Tiers based on usage
+    - No retrieval charges
+    - Small monthly monitoring and auto-tiering cost
+  - Tiers
+    - Frequent Access
+      - Automatic
+      - Default
+    - Infrequent Access
+      - Automatic
+      - Objects not accessed for 30 days
+    - Archive Instant Access
+      - Automatic
+      - Objects not accessed for 90 days
+    - Archive Access
+      - Optional
+      - Configurable from 90-700+ days
+    - Deep Archive Access
+      - Optional
+      - Configurable from 180-700+ days
+  ### Amazon S3 Lifecycle Configurations

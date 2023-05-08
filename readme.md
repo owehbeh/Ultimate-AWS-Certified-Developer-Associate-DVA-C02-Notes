@@ -763,3 +763,139 @@ A Database with Redis compatible API
 - Get ultra fast in-memory speed
 - Multiple AZ deployment
 - Access to fast recovery and data
+# 9️⃣ Route53
+## 🟧 Record Types 
+- A: Maps hostname to IPv4 
+- AAAA: Maps hostname to IPv6 
+- CNAME: maps hostname to another hostname 
+  - Target domain must have A or AAAA record 
+  - Cannot create CNAME for top node of DNS namespace, example: cannot create for example.com but for www.example.com  
+- NS: Name Servers for the hosted zone 
+  - Control how traffic is routed for a domain
+## 🟧 Hosted Zoned 
+- Container of records that defines how to route traffic to a domain and its subdomains 
+- Public Hosted Zones: Public domain name 
+- Private Hosted Zones: only available within one or more VPC
+## 🟧 CNAME vs Alias 
+### CNAME 
+- Points a hostname to any other hostname (app.domain.com => bla.anything.com) 
+- Only for non-root domains (something.domain.com) 
+### Alias 
+- Points a hostname to an AWS Resource (app.domain.com => bla.amazon.com) 
+- For non-root and root domains (domain.com = domain apex) 
+- Free 
+- Native health check
+## 🟧 Routing Policies 
+### Simple 
+- Point to single resource (even with Alias enabled) 
+- Can specify mult values, but client will choose one 
+- **No healthchecks**
+### Weighted 
+- % of requests to  resource 
+- Traffic % = weight for record / sum of all weights of all records 
+- % does not end at 100 
+- **DNS records must have same name and type**
+- Can have healthchecks 
+- If one record's weight is 0, it will have no traffic 
+- If all records' weight is 0, all will have equal traffic 
+- Usecases: 
+  - Load balancing 
+  - Testing new app versions by sending a small amount of traffic 
+### Latency 
+- Can have healthchecks 
+- **Can have failover**
+- Usecases: 
+  - Helpful when latency for users is priority 
+  - Germany users may be directed to US (if that is the lowest latency) 
+### Failover 
+- Must have primary & secondary types 
+- Must be associated with a health check 
+- If primary health check fails client will get the secondary (disaster recovery instance) 
+### Geolocation 
+- Based on user location – NOT LATENCY 
+- Specify location by 
+  - Continent 
+  - Country 
+  - US Satet 
+- If overlapping exist, most precise location will be selected 
+- Can be associated with health checks 
+- Use cases 
+  - Website localization 
+  - Restricting content 
+  - Load balancing 
+### Geoproximity (_Region Biased_)
+- Route traffic based on user location and resources location 
+- Bias: shifts traffic based on this number's value 
+  - Expand: 1 to 99 
+  - Shrink: -1 to –99 
+- Example: 
+  - AWS resources (specify region) 
+  - Non-AWS (specify Lat Lon) 
+- Use case: 
+  - **Shift traffic from one region to another by increasing the bias**
+### IP Based
+Define the routing based on the client IP addresses
+- Define a list of Siders (_ip ranges_)
+- base on the Sider which location traffic should be sent to
+- Use cases
+  - Optimize performance
+  - Reduce network costs
+- Example
+  - If you know a specific ISP that are using a specific siders of IP Adresses
+  - Route users to a specific endpoint
+### Multi Value 
+- Route traffic to multiple resources 
+- Can have health checks, while Simple cannot 
+- 1-8  healthy records 
+- Only healthy will be returned to client 
+- Is not a substitute for ELB, it is a client side load balancing
+## 🟧 Traffic Flow 
+- GUI editor for complex configuration 
+- Configurations saved as Traffic Flow Policy 
+- Can be applied to different Hosted Zones (domain names) 
+- Supports Versioning 
+- Costs money! 
+- **Very useful with Geoproximity**
+## 🟧 Health Checks  
+HTTP health checks are only for public resources 
+### Types 
+- **Monitors an endpoint**
+  - Example:
+    - App 
+    - Server 
+    - Other AWS resource 
+  - Process: 
+    - 15 Global health checkers  
+    - 10 - 30 sec interval (10 sec is higher cost) 
+    - **If > 18% report healthy, Route 53 consider it Healthy, else Unhealthy**
+    - Can choose locations to user 
+  - **Notes**:
+    - Endpoint must respond with 2xx or 3xx as healthy 
+    - Can pass/fail based on the text in first 5120 bytes of the response 
+    - Must allow incoming requests from Route 53 health checkers in router/firewall 
+- Monitors other health checks (these are named **calculated healthchecks**) 
+  - Combine result of multiple health checks 
+  - Can use OR, AND, or NOT 
+  - Monitor up to 256 child health checks 
+  - Specify number of children passes to make parent pass 
+  - Use case: 
+    - Perform maintenance withoutt causing all health checks to fail 
+- **Monitors CloudWatch Alarms** (Full control) (good for private resources) 
+  - Example: 
+    - Throttles 
+    - DynamoDB 
+    - Alarms on RDS 
+    - Custom metrics 
+  - Problem: 
+    - Route 53 health checks are outside VPC 
+    - They cannot access private endpoints 
+  - Solution: 
+    - Create a CloudWatch Metric 
+    - Associate a CloudWatch Alarm 
+    - Create a Health Check that checks the alarm itself 
+### Usecases 
+- Automated DNS Failover
+## 🟧 3rd Party Domain Registrar 
+### Process 
+1. Create a Hosted Zone in Route 53 
+2. Update NS Records on 3rd party website to user Route 54 Name Servers 

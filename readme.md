@@ -763,7 +763,7 @@ A Database with Redis compatible API
 - Get ultra fast in-memory speed
 - Multiple AZ deployment
 - Access to fast recovery and data
-# 9️⃣ Route53
+# 9️⃣ Route 53
 ## 🟧 Record Types 
 - A: Maps hostname to IPv4 
 - AAAA: Maps hostname to IPv6 
@@ -1018,7 +1018,7 @@ Network traffic logs
 VPN over public internet between on-premises DC and AWS
 ### Direct Connect
 Direct private connection to a AWS
-# 1️⃣1️⃣ Amazon S3
+# 1️⃣1️⃣ Amazon S3 Introduction
 ## 🟫 Buckets
 - Must have globally unique name 
 - Defined at region level 
@@ -1047,29 +1047,6 @@ Direct private connection to a AWS
   - Unicode key/value pairs 
   - Useful for security / lifecycle 
 - Version ID
-## 🟫 Versioning (_important_)
-- Enabled at bucket level 
-- Same key overwrite will increment the version 
-- Any non-versioned file prior to enabling versioning will have version "null" 
-- Suspending versioning does not delete previous versions 
-- Use cases 
-  - Protects against unintended deletes 
-  - Easy roll back to previous version
-## 🟫 Encryption (_Can be set on bucket level or object level_)
-- SSE-S3: using keys & hanAES-256dled by AWS 
-  - AES-256 
-  - Set Header: "x-amz-server-side-encryption":"AES256" 
-- SSE-KMS: AWS Key Management Service to manage encryption keys 
-  - User control 
-  - Audit Trail 
-  - Set Header: `"x-amz-server-side-encryption":"aws:kms"` 
-- SSE-C: Manage your own encryption keys 
-  - S3 does not store the encryption keys 
-  - Key must bbe provided in HTTPS headers for every request 
-- Retrieving need to provide the key used on uploading the object 
-- Client Side Encryption 
-  - Encrypt before sending to S3 
-  - Decrypt after retrieving from S3
 ## 🟫 Security
 ### User based 
 - IAM Policies 
@@ -1111,22 +1088,57 @@ Direct private connection to a AWS
 - Host static websites 
 - URL 
   - `[bucket-name].s3-website-[aws-region].amazonaws.com`
-## 🟫 CORS
-- An origin is 
-  - A scheme (protocol) 
-  - A host (domain) 
-  - A Port 
-  - EX: https://www.example.com 
-- If a client does cross-origin request on our S3 bucket, we need to enable the correct CORS headers
-- Have to set the CORS headers on the accessed bucket website not the one requesting it 
-### 🟫 Consistency Model 
+## 🟫 Versioning (_important_)
+- Enabled at bucket level 
+- Same key overwrite will increment the version 
+- Any non-versioned file prior to enabling versioning will have version "null" 
+- Suspending versioning does not delete previous versions 
+- Use cases 
+  - Protects against unintended deletes 
+  - Easy roll back to previous version
+## 🟫 Replication
+### Pre-requisites 
+- Enable Versioning in source + destination 
+- Give proper IAM permissions to S3 
+### Types 
+- SCRR – Cross Region Replication 
+  - Compliance 
+  - Lower Latency Access 
+  - Replication Across Accounts 
+- SRR – Same Region Replication 
+  - Log aggregation 
+  - Live replication between production and test accounts 
+### Notes 
+- Copying is asynchronous 
+- Buckets can be in different accounts 
+- Chaining or replication is a NOT ALLOWED. Bucket A => Bucket B => Bucket C 
+- After activation, only new objects are replicated 
+- After activation, can replicate existing objects using S3 Batch Replication 
+- Can replication delete markers from source to target 
+- Deletions with a version ID are not replicated (to avoid malicious deletes) 
+## 🟫 Encryption (_Can be set on bucket level or object level_)
+- SSE-S3: using keys & hanAES-256dled by AWS 
+  - AES-256 
+  - Set Header: "x-amz-server-side-encryption":"AES256" 
+- SSE-KMS: AWS Key Management Service to manage encryption keys 
+  - User control 
+  - Audit Trail 
+  - Set Header: `"x-amz-server-side-encryption":"aws:kms"` 
+- SSE-C: Manage your own encryption keys 
+  - S3 does not store the encryption keys 
+  - Key must bbe provided in HTTPS headers for every request 
+  - Retrieving need to provide the key used on uploading the object 
+- Client Side Encryption 
+  - Encrypt before sending to S3 
+  - Decrypt after retrieving from S3
+## 🟫 Consistency Model 
 - After  
   - Successful write of new object (new PUT) 
   - Overwrite or delete of existing object (overwrite PUT or DELETE) 
 - Any 
   - Subsequent read requests receives latest version of the object 
   - Subsequent list immediately reflects changes
-### 🟫 Replication
+## 🟫 Replication
 - CRR - (_Cross Region Replication_)
   - We have an S3 bucket in one region and a target S3 bucket in another region
   - We want to setup async replication between two buckets
@@ -1149,7 +1161,7 @@ Direct private connection to a AWS
     - It replicates existing object and previous failed replicate object
   - In case we have delete replications we can choose to include them in replication
   - If there is a deletion with a version ID they will not be replicated to avoid malicous delete happening from one bucket to another
-  ## 🟫 Storage Classes (_to understand not to remember the numbers_)
+## 🟫 Storage Classes (_to understand not to remember the numbers_)
   ### Amazon S3 Standard
   - General Purpose
     - Pros
@@ -1322,3 +1334,330 @@ Direct private connection to a AWS
   - Query String
     - Include the signature in the URL
     - query param is `X-Amz-Signature`
+# 1️⃣3️⃣ Advanced Amazon S3
+## 🔷 Lifecycle Configuration
+### Moving objects between storage classes automatically 
+### Rules 
+- Transition actions = Defines when objects are transitioned to another storage class 
+  - EX1: Move to Standard IA after 60 days of creation 
+  - EX2: Move to Glacier after 6 months 
+- Expiration actions = Configure objects to expire (delete) after some time 
+  - EX1: Access log files after 365 days 
+  - EX2: Delete old versions of files 
+  - EX3: Delete incomplete multi-part uploads 
+- Can apply rules to 
+  - A certain prefix (ex – s3://mybucket/mp3/*) 
+  - A certain objects tags (ex – Department: Finance) 
+- 5 actions 
+  - Transition current versions  
+  - Transition previous versions 
+  - Expire current versions 
+  - Permanently delete previous versions 
+  - Delete expired delete markers or incomplete multipart uplaods 
+## 🔷 Event Notifications
+### Process 
+- Capture events like 
+  - S3:ObjectCreated 
+  - S3:ObjectRemoved 
+  - Etc... 
+- Deliver events to Amazon EventBridge 
+- Handle event 
+### Notes 
+- Can create as many S3 Events as desired 
+- Delivered in seconds but can take a minute or longer 
+### Destinations to remember 
+- SNS 
+- SQS 
+- Lambda Function 
+- Or all to EventBridge 
+### Use Case 
+- Generate thumbnails of submitted images 
+## 🔷 Baseline Performance
+- Latency = 100-200ms 
+- 3,500 req / sec / prefix 
+  - PUT 
+  - COPY 
+  - POST 
+  - DELETE 
+- 5,500 req / sec / prefix 
+  - GET 
+  - HEAD 
+### KMS Limitation 
+- On upload it calls the GenerateDataKey KMS API 
+- On download it calls the Decrypt KMS API 
+- Limits varies based on region 
+  - 5,500 req/s 
+  - 10,000 req/s 
+  - 30,000 req/s 
+  - Can request quota increase using Service Quotas Console 
+### Multi-part Upload 
+- Recommended for files > 100MB  
+- Must use for files > 5GB 
+- Helps parallelize upload 
+### Transfer Acceleration 
+- Compatible with multi-part upload 
+- Increase transfer speed by transferring file to AWS edge location  
+- Edge location will transfer data to S3 bucket through AWS private network 
+### Byte-Range Fetches 
+- Parallelize GET by requesting specific byte ranges 
+- Speed up download 
+- Retrieve only partial data 
+## 🔷 S3 Select & Glacier Select
+- Retrieve less data using SQL by performing server-side filtering 
+- Filter by rows & columns 
+- Less network transfer 
+- Less CPU cost (client-side) 
+## 🔷 S3 Object Tags & Metadata
+### User-Defined Object Metadata
+- Assign metadata to objects
+- Must begin with "`x-amz-meta-`"
+- Metadata is stored as (key-value) pairs
+### Object Tags
+- Assign tags to objects
+- Useful for fine-grained permissions
+  - Only access specific objects with specific tags
+- Useful for analytics
+  - Using S3 Analytics to group by tags
+### Notes
+- Cannot search object metadata or tags
+- To search objects
+  - Use an external DB as a search index such as DynamoDB
+# 1️⃣4️⃣ Amazon S3 Security
+## ⭐  Encryption 
+- If unencrypted object was uploaded having a default encryption option will encrypt it 
+- How to force encryption 
+  - Default encryption 
+  - Bucket Policies 
+- Bucket Policies are evaluated before default encryption 
+## ⭐ CORS
+- An origin is 
+  - A scheme (protocol) 
+  - A host (domain) 
+  - A Port 
+  - EX: https://www.example.com 
+- If a client does cross-origin request on our S3 bucket, we need to enable the correct CORS headers
+- Have to set the CORS headers on the accessed bucket website not the one requesting it 
+## ⭐ MFA Delete
+- Needed to 
+  - Permanently delete an object version 
+  - Suspend versioning on the bucket 
+- Not needed to 
+  - Enabling versioning 
+  - Listing deleted versions 
+- Pre-requisites 
+  - Enable Versioning on the S3 bucket 
+  - Use root account 
+  - Enable MFA device on account 
+## ⭐ Access Logs
+- Any request made to S3 from any account authorized or denied, will be logged into another S3 bucket 
+-Always separate target bucket and logging bucket to avoid logging infinite loop 
+## ⭐ Pre-signed URLs
+- Using SDK or CLI 
+- By default valid for 3600 sec 
+- Can edit validity time with –expires-in <time_in_seconds> argument 
+- Users with pre-signed URL inherit permissions of person who generated URL for GET/PUT 
+### Use cases 
+- Allow only logged-in users to download premium video 
+- ALlo ever changing list of users to download files by generating URLs dynamically 
+- Allow temp a user to upload a file to a precise location in the bucket 
+## ⭐ Access Points
+### Simplify security management for S3 Buckets
+- Instead of assigning user groups with a very complicated S3 Bucket Policy, we can give them access to S3 Access Points
+- Each Access Point has its own DNS name
+  - Internet Origin (public access)
+  - VPC Origin (internal private access)
+### VPC Origin
+- Define them to be privately accessible
+- Create VPC Endpoint to access the Access Point
+  - Gateway Endpoint
+  - Interface Endpoint
+- The VPC Endpoint Policy allows access to target Bucket and Access Point
+## ⭐ S3 Object Lambda
+### What is it?
+- Use AWS Lambda Functions to manipulate the object before it is recieved by the caller application
+### How it works?
+- S3 Bucket ⤵️
+- S3 Access Point ⤵️
+- Redacting Lambda Function ⤵️
+  - Enriches data e.g. from DynamoDB
+- S3 Object Lambda Access Point ⤵️
+- Caller ✅
+### Use Cases
+- Encrypt and decrypt objects 
+- Enrich Object with external data for analytics
+# 1️⃣5️⃣ AWS CloudFront
+## 📶 What is it?
+- Content Delivery Network (CDN)
+## 📶 Why use it?
+- Improve read perfomance
+- 216 Point of Presence globally (**edge locations**)
+- DDos protection
+  - Integration with Sheild
+  - AWS Web Application Firewall
+## 📶 Origins 
+### S3 Bucket 
+- Distribute files and chache them at the edge 
+- Enhanced Security (Origin Access Identity – OAI) 
+### Custom Origin (HTTP) 
+- EC2 instance 
+  - Must Be Public 
+  - Security: Must allow all IP addresses of all Edge Locations 
+- Application Load Balancer 
+  Must Be Public 
+  - Security: Must allow all IP addresses of all Edge Locations 
+    - But the EC2 Instances can be private 
+- S3 website 
+- Any HTTP Backend
+## 📶 CloudFront vs S3 Cross Region Replication 
+### CloudFront 
+- Global Network Edge 
+- Cached with TTL 
+- Can invalidate cached by creating a cache invalidation 
+- Great for static content that must be available everywhere 
+### S3 Cross Region Replication 
+- Must setup every region 
+- Update files in real-time 
+- Read only 
+- Great for dynamic content that is required at low-latency in a few regions
+## 📶 Caching
+### How does it work?
+- Cache lives in CloudFront Edge Location
+- CloudFront identifies each object in the cache using (**Cache Key**)
+### Cache Key
+- A unique identifier for every object in the cache
+- Default is the **hostname** + **resource portion of the URL**
+### Cache Policy
+- Based on
+  - HTTP Headers
+    - None
+    - Whitelist
+  - Coockies
+    - None
+    - Whitelist
+    - Include All-Except
+    - All
+  - Query Strings
+    - None
+    - Whitelist
+    - Include All-Except
+    - All
+- Control TTL
+  - 0 second to 1 year
+  - Can be set by the origin using `Cache-Control` header or `Expires` header
+### Origin Request Policy
+- Specify values you want to include in origin **without including them in Cache Key**
+- Can Include
+  - HTTP headers
+  - Cookies
+  - Query Strings
+### Good Practice
+- Maximize Cache Hit ratio 
+- Enhance cache key by adding more information
+  - HTTP Headers
+  - Cookies
+  - Query Strings
+- **ALL** Policy is the worst performing policy
+### Notes
+- All headers, cookies, and query strings included in the **Cache Key** are automatically included in origin requests
+## 📶 Cache Invalidations
+### Invalidate Cache
+- Invalidate cache for a specific path __e.g. (/images/*)__
+- Invalidate cache for all objects __e.g. (*)__
+### Why use it?
+- In case you updated the back-end origin, users will only get the refreshed content after TTL has expired
+## 📶 Cache Behaviors
+### What is it?
+- Configure different settings for different given URL path patterns
+### Why use it?
+- Specific cache behavior to __images/*.jpg__ files on your origin web server
+- Route to different kind of origins groups based on content type of path pattern
+  - __/images/*__
+    - Directs to S3 Bucket
+  - __/api/*__
+    - Sends to ALB
+  - __/*__ (default cache behavior)
+### Use Cases
+- Sign In Page
+  - Cache behavior for **/login**
+    - Directs to App instance that generates signed cookies
+  - Cache behavior for default __/*__
+    - Set up to only accept if signed cookies are present
+- Maximize Cache Hit by seperating static and dynamic distributions
+  - Static goes to S3
+  - Dynamic goes to ALB + EC2
+### Notes
+- The Default Cache Behavior is always the last to be processed and is alwasy __/*__
+- The most specific behavior is going to be selected
+## 📶 ALB / EC2 As Origin
+- EC2
+  - EC2 instances **must be public**
+  - Ec2 instances must allow all IP addresses of Edge Locations
+    - There a list of IP addresses that can be used provided by AWS
+- ALB
+  - EC2 instances can be private
+  - Allow Security Group must be attached to EC2 instance to allow ALB access
+  - ALB **must be public**
+  - ALB must allow all IP addresses of Edge Locations
+## 📶 Geo Restriction
+### How does it work?
+- Allowlist
+- Blocklist
+### Use Cases
+- Control access to content to follow regulations
+## 📶 Signed URL vs Signed Cookies 
+### Signed URL  
+- One URL per file 
+- Process 
+  - Trusted Key Group (RECOMMENDED) 
+    - Create Trusted Key Groups 
+      - Any IAM user with sufficient permissions can create Public Keys and Key Groups 
+    - Generate own public / private key (2048 bit) 
+      - Private key will be used by app to sign URL 
+      - Public key will be used by CloudFront to verify URLs 
+  - AWS Account that contains AWS Key Pair (BAD) 
+### Signed Cookies 
+- One Cookie for many files 
+### Signed URL vs S3 Pre-Signed URL
+
+| Signed URL vs                                                                             | S3 Pre-Signed URL                                    |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Allow access to path regardless of the origin                                             | Issue a request as the person who pre-signed the URL |
+| ~~Account wide key-pair (only root can manage it)~~ Recommended way is Trusted Key Groups | Uses the IAM key of the signing IAM principle        |
+| Can filter by IP, path, date, expiration <br>Can levarage caching features                | Limited lifetime                                     |
+## 📶 Pricing (_important_)
+### Cost varies based on location 
+### Price Classes 
+- Price Class All = All regions – best performance 
+- Price Class 200 = Most regions – excludes most expensive regions 
+- Price Class 100 = Only least expensive regions
+## 📶 Multiple Origin 
+- Route different kind of origins based on content type 
+- Based on path pattern 
+  - /images/* => S3 Bucket 
+  - /api/* => ALB 
+  - /* 
+## 📶 Origin Groups 
+- Increase high-availability and do failover  
+- One primary + one secondary origin 
+- Primary origin fails > secondary is used
+## 📶 Field Level Encryption 
+### Why use it?
+- Protect sensitive information through application 
+- Uses asymmetric encryption 
+### Use Cases 
+- Specify field level encryption in POST request 
+- Specify the public key to encrypt them
+## 📶 Real-Time Logs
+### What is it?
+- Requests are sent in real-time to Kinesis Data Streams
+### Why use it?
+- Monitor
+- Analyze
+- Take Actions
+- Base on CDN performance
+### Sampling Rate
+- Percentage of requests to be recieved
+- Specific fields
+- Specific Cache Behaviors (path patterns)
+# 1️⃣6️⃣ ECS, ECR, & Fargate - Docker in AWS
+## 🎁 Amazon ECS – Elastic Container Service

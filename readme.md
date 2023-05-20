@@ -2016,4 +2016,232 @@ Direct private connection to a AWS
 2. Build that platform using Packer Software – open source tool to create AMIs 
 ### Custom Platform vs Custom Image (AMI) 
 - Platform – create new Beanstalk Platform 
-- Image – tweak existing Beanstalk Platform 
+- Image – tweak existing Beanstalk Platform
+# 1️⃣8️⃣ AWS CloudFormation
+## 🌨️ Infrastructure as code (in a declarative way) 
+- No resources are manually created – great for control 
+- The code can be version controlled using git 
+- Changes to the infrastructure are reviewed through code 
+## 🌨️ Cost 
+- Resources within the stack are stagged with an id 
+  - This enables us to see how much a stack costs 
+- We can estimate the costs using the CloudFormation template 
+- Savings strategy – in Dev we can automate deletion of templates at 5PM and recreate them at 8AM 
+## 🌨️ Productivity 
+- Destroy + Re-create infrastructure on the fly 
+- Automated generation of Diagrams – good for presentations 😉  
+- Declarative programming – no need to figure out ordering & orchestration 
+- Leverage existing templates on the web 
+- Leverage the documentation 
+## 🌨️ Separation of concern 
+- VPC stacks 
+- Network stacks 
+- App stacks 
+## 🌨️ Deployment 
+### Manual 
+- CloudFormation Designer 
+- Use console to input params, etc.. 
+### Automated – recommended  
+- Edit templates in YAML file 
+- Use QWS CLI to deploy the templates 
+## 🌨️ Templates Components 
+### Resources – mandatory  
+- AWS::aws-product-name::data-type-name 
+- Cannot be dynamic, everything has to be declared 
+- Almost all AWS services are supported but not all 
+  - Workaround => AWS LAmbda Custom Resources 
+### Parameters 
+- Input to AWS CloudFormation template 
+- FN::Ref / !Ref => to reference a parameter  
+  - Can reference parameter or resources 
+- AWS offers pseudo params 
+  - AWS::AccountId 
+  - AWS::NotificationARNs 
+  - AWS::NoValue 
+  - AWS::Region 
+  - AWS::StackId 
+  - AWS::StackName 
+### Mappings 
+- Fixed variables within CloudFormation template 
+- Handy to differentiate between dev/prod, regions, AMIs 
+- Values are hardcoded 
+- Safer control over the template 
+- Mapping Example 
+  ```YAML
+  RegionMap: 
+    us-east-1: 
+      "32":"ami-35235234" 
+      "64":"ami-32531241" 
+    us-west-1: 
+      "32":"ami-37775234" 
+      "64":"ami-36661241" 
+  ```
+- Access in template example 
+  - `Fn::FindInMap` or `!FindInMap [MapName,TopLevelKey,SecondLevelKey] `
+  - Example 
+    - `ImageId: !FindInMap[RegionMap, !Ref "AWS::Region", 32] `
+### Outputs 
+- Optional outputs values you can import into other stacks 
+- Should be exported first of course 
+- Enables collaboration cross stack 
+- Cannot delete a CloudFormation stack if it has outputs that are being referenced in another stack
+- Example
+  - Export
+    ```YAML
+    Outputs:
+      StackSSHSecurityGroup:
+        Desctription: Security group of company
+        Value: !Ref MyCompanyWideSSHSecurityGroup ⬅️
+        Export:
+          Name: SSHSecurityGroup ⬅️
+    ```
+  - Import
+      ```YAML
+      Resources:
+        MySecureInstance:
+          Type: AWS::EC2::Instance
+          Properties:
+            AvailibilityZone: us-east-1a
+            ImageId: ami-a4c7edb2
+            InstanceType: t2.micro
+            SecurityGroups:
+              - !ImportValue SSHSecurityGroup ⬅️
+      ```
+### Conditionals 
+- Create resources/outputs based on conditions 
+- Can be whatever you want 
+- Common ones are 
+  - Environment 
+    - Dev 
+    - Test 
+    - Prod 
+  - AWS Region 
+  - Any param value 
+- Each condition can reference 
+  - Another condition 
+  - Param value 
+  - Mapping 
+- Intrinsic Function / Logical 
+  - Fn::And 
+  - Fn::Equals 
+  - Fn::If 
+  - Fn::Not 
+  - Fn::Not 
+  - Fn::Or
+- Example
+  - Create Condition
+    ```YAML
+    Conditions:
+      CreateProdResources: !Equals [!Ref EnvType, prod] ⬅️
+    ```
+  - Use Condition
+    ```YAML
+    Resources:
+      MountPoint:
+        Type: "AWS::EC2::VolumeAttachment"
+        Condition: CreateProdResources ⬅️
+    ```
+## 🌨️ Intrisic Functions 
+### `Fn::Ref`
+- Reference a 
+  - Parameter – Returns the value  
+  - Resource – Referencing a resource returns its ID 
+### `Fn::GetAtt` 
+- Returns a value for a specified attribute  
+- Example
+  ```YAML
+  !GetAtt logicalNameOfResource.attributeName
+  ```
+### `Fn::FindInMap` 
+- Mentioned above 
+### `Fn::ImportValue` 
+- Mentioned above = Import values that are exported In other templates 
+### `Fn::Join`
+- Join values with a delimiter 
+- !Join [delimiter, [list of values] ] 
+- Example 
+  ```YAML
+  !Join [ ":",  [ a, b, c] ] => "a:b:c"
+  ``` 
+### `Fn::Sub` 
+- Substitutes variables in an input string with values that you specify 
+- Example 
+  - ```YAML
+    Fn::Sub:
+      - String
+      - Var1Name: Var1Value
+        Var2Name: Var2Value
+    ```
+  - ```YAML
+    Fn::Sub: String
+    ```  
+    - If you're substituting only template parameters, resource logical IDs, or resource attributes in the String parameter, don't specify a variable map. 
+### Condition Functions 
+- `Fn::And`
+- `Fn::Equals` 
+- `Fn::If`
+- `Fn::Not` 
+- `Fn::Not`
+- `Fn::Or`
+## 🌨️ Rollbacks 
+### Stack creation fails 
+- Default: everything rolls back (gets deleted). 
+  - Check the logs to debug 
+- Option to disable rollback and debug what happened 
+### Stack Update Fails 
+- The stack automatically rolls back to previous known working state  
+- Ability to see in the log what happened and error messages 
+## 🌨️ Stack Notifications
+### What is it?
+- Allows you to send stack events to SNS Topic (Email, Lambda, ...)
+### How it works?
+- Enable SNS integration using stack options
+- From that point, any event will be sent to the SNS topic of your choice
+- In order to filter for specific events, you can
+  - Create a Lambda function that filters specific events
+  - The Lambda function calls SNS or any other Service to handle the event
+## 🌨️ ChangeSets 
+- Provides information about what changes will occur on update
+- Does not detect if update will be successful 
+## 🌨️ Nested Stacks – Best Practices / Recommended 
+### What is it?
+- Stacks that ar part of other stacks 
+- Allow isolation of repeated patterns 
+  - Common components in separate stacks 
+### Example 
+- Load Balancer configuration that is re-used 
+- Security Group that is re-used 
+- To update nested stack, always update the parent 
+### Nested VS Cross 
+- Cross Stacks 
+  - Use outputs Export and !ImportValue 
+  - Used when in need to pass export to many stacks 
+  - Helpful when stacks have different lifecycles
+- Nested Stacks 
+- Re-use properly configured ALB 
+- Important only to the higher level stack – not shared 
+- Helpful when components must be re-used
+## 🌨️ StackSets 
+### What is it?
+- Apply stack operation to multiple accounts and region with a single operation 
+  - Create 
+  - Update 
+  - Delete 
+### How it works? 
+- Admin account creates StackSets 
+- Trusted accounts create/update/delete stack instances from StackSets 
+### Notes
+- When a stack is updated, all associated stack instances are update throughout all accounts and regions 
+## 🌨️ Drift 
+### What is it?
+- Manual configuration changes can be harmful to our stack 
+- Drift is used to know if our resources have been drifted 
+### Process 
+- Detect Drift 
+- View Drift 
+### Note
+- Not all resources are supported yet 
+## 🌨️ Stack Policies
+### What is it?
+- Protect stack against updates
+- Define what update actions are allowed on specific resources during stack updates

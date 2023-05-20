@@ -1661,3 +1661,244 @@ Direct private connection to a AWS
 - Specific Cache Behaviors (path patterns)
 # 1️⃣6️⃣ ECS, ECR, & Fargate - Docker in AWS
 ## 🎁 Amazon ECS – Elastic Container Service
+### Launching Docker Containers
+- Means Launching ECS Tasks on ECS Clusters
+### Launch Types
+- EC2 
+  - Docker containers placed on EC2 instances that we provision in advanced 
+  - You must provision & maintain the infrastructure  
+  - Each EC2 instance must run in the ECS Cluster 
+  - AWS takes care of starting / stopping containers 
+- Fargate 
+  - No provision 
+  - It is serverless 
+  - Runs based on CPU / RAM needed 
+  - To scale => increase number of tasks 
+### IAM Roles
+- EC2 Instance Profile 
+  - Works on both EC2 Launch Type 
+  - Used by the ECS agent 
+  - Makes API calls to 
+    - ECS service 
+    - Send container logs to CloudWatch Logs 
+    - Pull Docker image from ECR 
+    - Reference sensitive data in Secrets Manager or SSM Parameter Store 
+- ECS Task Role 
+  - Works on both EC2 & Fargate Launch Types 
+  - Allow each task to have a specific role 
+  - Use different roles for different ECS Services 
+  - Task Role is defined in task definition
+### Load Balancer Integrations 
+- ALB = Supported and works for most use cases 
+- NLB = Recommended only for 
+  - High throughput / high performance use cases 
+  - Pair it with AWS Private Link 
+- ELB = Supported but not recommended 
+  - No advanced features like Fargate 
+###  Data Volumes 
+- EFS 
+  - Mount onto ECS tasks 
+  - Because it is a network file system it will be compatible with both EC2 & Fargate 
+  - Tasks running in any AZ will share same data  
+  - Fargate + EFS = Serverless  
+- Use cases 
+  - Persistent multi-AZ shared storage for containers 
+- Note 
+  - ESx For Lustre is not supported 
+  - S3 cannot be mouinted as a file system
+### AWS Application Auto Scaling 
+- Automatically increase / decrease desired number of ECS tasks  
+- Based on 
+  - Average CPU Utilization  
+  - Average Memory Utilization – Scale on RAM 
+  - ALB Request Count Per Target – Metri coming from the ALB 
+- Scaling 
+  - Target Tracking = scale based on target value for a sp  - cific CloudWatch metric 
+  - Step Scaling = scale based on specified CloudWatch Alarm 
+  - Scheduled Scaling = scale based on a specified date/time (predictable changes) 
+  - NOTE 
+    - ECS Service Auto Scaling (task level) IS NOT EC2 Auto Scaling (instance level) 
+    - Fargate Auto Scaling is more easier because Serverless 
+- EC2 Auto Scaling 
+  - Auto Scaling Group 
+    - Scale ASG based on CPU Utilization 
+    - Add EC2 instances over time 
+  - ECS Cluster Capacity Provider – Recommended 
+    - Automatically provision and scale infrastructure of ECS Tasks 
+    - Pairs with an AUto Scaling Group 
+    - Add EC2 instances when you miss capacity (CPU, RAM,…)
+### Rolling Updates 
+- When updating from v1 to v2 control 
+  - How many tasks can be started and stopped 
+  - In what order 
+- By choosing 
+  - Minimum healthy percent – 0% 
+  - Maximum healthy percent – 200% 
+### Architectures 
+- ECS Tasks invoked by Event Bridge 
+  - Client uploads object to S3 Bucket 
+  - Event sent to Amazon EventBridge 
+  - Rule on EventBridge runs an ECS Task 
+  - The new Task processes the file on the S3 Bucket  
+  - Then sends the result to Amazon DynamoDB 
+- ECS Tasks invoked by Event Bridge Schedule 
+  - AmazonBridge runs a rule every 1 hour 
+  - The rule runs an ECS Task 
+  - The ECS Task batch processes some files on an S3 Bucket 
+- ECS SQS Queue 
+  - Messages reach SQS Queue 
+  - Services poll for messages from SQS Queue 
+  - Process them 
+  - ECS Service Auto Scaling is enabled 
+  - So the more messages we have the more Tasks we have in our Service 
+### Task Definition 
+- A metadata in JSON for to tell ECS how to run a Docker container 
+- Can define up to 10 container in a Task Definition 
+- Contains 
+  - Image Name 
+  - Port Binding for Container and Host 
+  - Memory and CPU required 
+  - Environment Variables 
+  - Networking information 
+  - IAM Role 
+  - Logging configuration – ex CloudWatch 
+- Loading Balancing 
+  - EC2 
+    - Dynamic Host Port Mapping if we define only the container port in the task defnition and leave  the host port 
+    - The ALB finds the right port on the EC2 instances 
+    - Must allow on the EC2 instance's Security Group ANY PORT from the ALB Security Group 
+  - Fargate 
+    - Each task have unique private IP (through ENI) 
+    - Only define container post 
+    - Host port is not applicable 
+    - Example 
+      - ECS ENI Security Group – Allow port 80 from ALB 
+      - ALB Security Group – Allow port 80/443 from web 
+- IAM Role – Assigned per Task Definition 
+  - Assign an ECS Task Role for a Task Definition 
+  - Creating an ECS Service from this Task Definition 
+  - Each ECS Task automatically inherit the ECS Task Role from the Task Definition 
+  - All Tasks within a Service will have access to S3 Bucket for example 
+- Environment Variables 
+  - Hardcoded = e.g URLs 
+  - SSM Parameter Store – sensitive variables = e.g. API keys / shared configs 
+  - Secrets Manager – sensitive variables = e.g. DB passwords 
+- Environment Files (bulk) 
+  - Amazon S3 
+- Data Volumes 
+  - Share data volumes between multiple containers in the same Task Definiton 
+  - Works on EC2 & Fargate Tasks 
+  - Ec2 Tasks 
+    - Using EC2 instance storage 
+    - Tied to lifecycle of the instance 
+  - Fargate Tasks 
+    - Using ephemeral storage  
+    - Tied to the containers storage 
+    - 20GB-200GB  
+    - 20GB default 
+  - Use cases 
+    - Share ephemeral data between containers 
+    - "Sidecar" container to send metrics/logs to other destination 
+      - Separation of concerns
+### Tasks Placement – only for ECS on EC2
+- Task placement strategy 
+  - Where to place Task? / What Task to terminate? 
+  - Within the constraints of 
+    - CPU 
+    - RAM 
+    - Available Port 
+  - Process 
+    - Identify instances that satisfy requirements in the deinition 
+    - Identify instances that satisfy constraints 
+    - Identify instances that satisfy placement strategies 
+    - Select the instances for Task Placement 
+  - Types 
+    - Binpack 
+      - Place tasks based on least available amount of CPU / RAM 
+      - Consume an instance before moving to another 
+      - Very cost saving
+      ```JSON
+        "placementStrategy":[
+          {
+          "field" : "memory",
+          "type" : "binpack" 
+          }
+        ] 
+      ```
+    - Random 
+      - Place tasks randomly 
+      ```JSON
+      "placementSt rategy":[
+        {
+          "type": " random" 
+        }
+      ]
+      ``` 
+    - Spread 
+      - Place tasks evenly across multiple EC2 instance 
+      - Maximize high-availability 
+        - By spreading across multi-AZ for example 
+      ```JSON
+      "placementSt rategy": [ 
+        {
+          "field" : "attribute:ecs.availability-zone", 
+          "type" : "spread"
+        }
+      ]
+      ```
+- Task placement constraints 
+  - Types 
+    - distinceInstance 
+      - Place each task on a different container 
+    - memberOf 
+      - Place task on instances that satisfy an expression 
+      - Uses the Cluster Query Language 
+      ```JSON
+      "placementConstraints":[
+        {
+          "expression": "attribute:ecs.instance—type =~ t2.*" , 
+          "type": "memberOf" 
+        }
+      ] 
+      ```
+### ECS configuration to make request to AWS services 
+- Edit [`/etc/ecs/ecs.config`] to allow 
+- `ECS_ENABLE_TASK_IAM_ROLE` 
+## 🎁 Amazon EKS – Elastic Kubernetes Service 
+- Open-source system for automatic deployment 
+- An alternative to ECS, similar goal different API 
+- ECS Tasks = EKS Pods 
+### Launch Types 
+- EC2 
+- Fargate 
+### Use cases 
+- Cloud-agnostic – can be used in any cloud 
+- If already using on premis or on a different cloud provider 
+## 🎁 Amazon ECR (Amazon Elastic Container Registry) 
+- Public repository (Amazon ECR public Gallery gallery.ecr.aws) 
+- Private repository 
+  - Access is controlled through IAM Roles ( permission error => policy) 
+    - Assign IAM Role to EC2 Instance 
+- Supports 
+  - Vulnerability scanning 
+  - Versioning 
+  - Lifecycle 
+### CLI (_important_)
+- Login Command (AWS CLI v2)
+  - `aws ecr get-login-password --region `**region**` | docker login --username AWS --password-stdin  `**aws_account_id**`.dkr.ecr.`**region**`.amazonaws.com` 
+  - Docker Commands
+    - Push
+      - `docker push `**aws_account_id**`.dkr.ecr.`**region**`.amazonaws.com/demo:latest`
+    - Pull
+      - `docker pull `**aws_account_id**`.dkr.ecr.`**region**`.amazonaws.com/demo:latest`
+- Notes
+  - In case an EC2 instance can't pull a Docker image, check IAM permissions
+## 🎁 AWS CoPilot
+### What is it?
+- CLI tool to build, release, and operate production-ready containerized apps
+### Why use it?
+- Remove the difficulty of running your app on AppRunner, ECS, and Fargate 
+- Focus on building the app rather than setting up the infrastructure
+- Automated deployments with one command using CodePipeline
+- Deploy to multiple environments
+- Troublshoot logs, health statuses...

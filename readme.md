@@ -1902,3 +1902,118 @@ Direct private connection to a AWS
 - Automated deployments with one command using CodePipeline
 - Deploy to multiple environments
 - Troublshoot logs, health statuses...
+# 1️⃣7️⃣ AWS Elastic Beanstalk
+## 🎋 Tiers
+### Web Server Tier
+- ELB
+  - ASG
+    - EC2 Cluster
+### Worker Environment Tier
+- SQS Queue
+  - ASG
+    - EC2 Cluster
+## 🎋 Deployment Modes / Presets 
+### Single Instance 
+- Greate for dev 
+### High Availability 
+- Great for production
+## 🎋 Deployment Strategies 
+### All-at-Once: Performs in place deployment on all instances. 
+- Fastest 
+- Downtime 
+- No Cost 
+- Greate for quick iterations in dev environment
+### Rolling: Splits the instances into batches and deploys to one batch at a time. 
+- App run below capacity but no downtime 
+- No Cost 
+- Both versions run simultaneously  
+- Can set bucket size 
+### Rolling with Additional Batch: Splits the deployments into batches but for the first batch creates new EC2 instances instead of deploying on the existing EC2 instances. 
+- App run at capacity 
+- Both versions run simultaneously  
+- Small added cost 
+- Can set bucket size 
+- Longer deployment
+### Immutable: If you need to deploy with a new instance instead of using an existing instance. 
+- Zero downtime 
+- High cost 
+- Double capacity 
+- Longest deployment 
+- Quick rollback in case of failures – terminate new ASG 
+- Great for prod
+### Traffic Splitting: Performs immutable deployment and then forwards percentage of traffic to the new instances for a pre-determined duration of time. If the instances stay healthy, then forward all traffic to new instances and shut down old instances. 
+- Canary Testing 
+- No app downtime 
+- New app version deployed to a temp ASG with same capacity 
+- Small % of traffic sent to temp ASG for a time 
+- Health is monitored 
+- If fail happen automated rollback exec 
+- New versions migrated from temp ASG to original 
+- Old versions then get terminated 
+### Blue/Green
+- Because AWS Elastic Beanstalk performs an in-place update when you update your application versions, your application might become unavailable to users for a short period of time. To avoid this, perform a blue/green deployment. To do this, deploy the new version to a separate environment, and then swap the CNAMEs of the two environments to redirect traffic to the new version instantly. 
+## 🎋 Lifecycle Policy 
+- Elastic Beanstalk can store at most 1000 apps versions 
+- To phase out old versions use Lifecycle Policy 
+  - Based on time – old versions removed 
+  - Based on space – too many verions 
+- Versions in use don't get removed 
+- Retention: Option not to delete source bundle in S3 to prevent data loss
+## 🎋 Extensions 
+- In the .ebextensions/ directory in the root of the source code 
+- YAML / JSON Format 
+- .config extensions – ex= logging.config 
+- Can modify some default settings using: option_settings 
+- Can add resources such as 
+  - RDS 
+  - ElastiCache 
+  - DynamoDB 
+- Resources manage by .ebextensions get deleted if env goes away!
+## 🎋 Migration
+### Load Balancer 
+- Since after creating a Beanstalk env you cannot change the Load Balancer type 
+- To migrate 
+  1. Create a new env with same config – not clone since cloning copies all config including LB ones 
+  2. Deploy app on new env 
+  3. Perform a CNAME swap or Route53 update  to shift traffic from old env to new one 
+### Decouple RDS
+- RDS provisioned with Beanstalk is good for dev / test ONLY but BAD for prod because it is tied to env lifecycle 
+- Best for prod is to separate RDS database from Beanstalk configuration and configure through .ebextensions to connect to RDS through connection string 
+- To migrate 
+  - Create a snapshot of RDS DB – as a safegaurd 
+  - Protect RDS from deletion – through RDS console 
+  - Create a new Elastic Beanstalk env without RDS 
+  - Point app to existing RDS 
+  - Perform a [blue/green] CNAME swap or Route 53 update and confirm it is working 
+  - Terminate old env – RDS won't be deleted 
+  - Delete CloudFormation stack that will be in DELETED_FAILED state since we protected our RDS from deletion
+## 🎋 HTTPS  
+- Load SSL onto the Load Balancer 
+  - From the Console => EB console but Load Balancer configuration 
+  - From the Code => .ebextiontions/securelistener-lb.config 
+  - SSL certs can be provisioned using ACM (AWS Certificate Manager) or CLI 
+  - Must configure a security group rule to allow incoming port 443 HTTPS port 
+- Redirect HTTP to HTTPS 
+  - Configure instances to redirect HTTP to HTTPS 
+  - OR configure ALB with a rule 
+  - Health checks should not redirect they should return 200 OK
+### Web Server VS Worker Environment 
+- Web Server = Application responding to request 
+- Worker Environment = Performs tasks that are long to complete 
+  - Should offload these tasks to a dedicated worker environment 
+  - Decoupling application into two tiers 
+- Example 
+  - Processing a video 
+  - Generating a zip file 
+  - Processing an audio 
+- Can define periodic tasks in a file cron.yaml
+## 🎋 Custom Platform – Advanced 
+### Use case 
+- App language is not compatible wi Beanstalk 
+- App does not use docker 
+### Process 
+1. Define an AMI using Platform.yaml file 
+2. Build that platform using Packer Software – open source tool to create AMIs 
+### Custom Platform vs Custom Image (AMI) 
+- Platform – create new Beanstalk Platform 
+- Image – tweak existing Beanstalk Platform 

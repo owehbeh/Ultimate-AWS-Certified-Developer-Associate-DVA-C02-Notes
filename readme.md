@@ -2588,36 +2588,406 @@ Direct private connection to a AWS
 | Useful to detect unauthorized calls or root cause of changes | Useful to track app performance for optimization and handle unexpected behaviors | Useful for Fault Analysis and request tracking across distributed systems |
 # 2️⃣0️⃣ AWS Integration & Messaging: SQS, SNS, & Kinesis
 ## 🎙️ SQS
+- Simple Queuing Service – used to decoupling applications
 ### Attributes
+- Unlimited throughput – we can send as many messages per second 
+- Unlimited number of messages in queue 
+- **Message life**: 4 days default. Maximum 14 days. Minimum 1 minute 
+- Low latency = < 10ms on publish and receive 
+- Message size: **256KB max**
+- Can have duplicate messages 
+- Can have out of order messages 
 ### Producer
+- send messages to SQS using SDK 
+- API = **SendMessage** 
+- Message is persisted until a consumer deletes it 
+- Message retention: 4 days, max 14 days 
 ### Consumer
+- Runs on 
+  - EC2  
+  - On premise server 
+  - AWS Lambda 
+- Receives up to 10 messages at a time 
+- Processes the message – ex: insert into RDS database 
+- Delete the messages using the DeleteMessage API 
 ### SQS With ASG
+           +-----------------+
+           |                 |
+           |   EC2 Instances |--------+
+           |                 |        |
+           +-------+---------+        |
+                   |                  |
+                   |                  |
+                   |                  |
+         +---------+---------+        |
+         |                   |        |
+         |   Auto Scaling    |        |
+         |    Group (ASG)    |        |
+         |                   |        |
+         +---------+---------+        |
+                   |                  |
+                   |                  |
+                   |                  | Polling Messages
+         +---------+---------+        |
+         |                   |        |
+         |   CloudWatch      |        |
+         |    Alarm          |        |
+         |                   |        |
+         +---------+---------+        |
+                   |                  |
+                   |                  |
+                   |                  |
+         +---------+---------+        |
+         |                   |        |
+         |   SQS Queue       |<-------+
+         |                   |
+         +---------+---------+
+
 ### Encryption
+- HTTPS – In-flight 
+- KMS keys – At-rest 
+- Client-sided – client handles encryption/decryption 
 ### Access Policies
+- IAM policies to regulate access to SQS API
+- Access Policies to enable cross-account access 
+  - Similar to S3 bucket policies 
+  - Useful for cross-account access to SQS 
+  - Useful for allowing other services like (SNS, S3...) to write to an SQS queue 
+    ```JSON
+    +-------------------------------------+
+    |            Account A                |
+    +-------------------------------------+
+    |                                     |
+    |            SQS Queue                |
+    |                                     |
+    +-------------------------------------+
+                    ||
+                    ||
+                    \/
+    +-------------------------------------+
+    |            Account B                |
+    +-------------------------------------+
+    |                                     |
+    |            EC2 Instance             |
+    |                                     |
+    |    Polling for messages from        |
+    |    Account A's SQS Queue            |
+    |                                     |
+    +-------------------------------------+
+    {
+      "Version": "2012-10-17",
+      "Statement": [{
+          "Effect": "Allow",
+          "Action": "sqs:*",
+          "Principle":{"AWS":["B"]}
+          "Resource": "arn:aws:sqs:*:A:my_queue_name*"
+      }]
+    }
+    ```
 ### Visibility Timeout
+- Message gets polled by consumer 
+- Message is invisible for **30 seconds (default)**
+- Message is processed and deleted by consumer 
+- If message is not deleted it will be read by other or same consumer again 
+- If first consumer is not done processing the message within the visibility timeout other consumers will poll it and it will be processed twice 
+- We can change default Visibility time from management console 
+- We can call **ChangeMessageVisibiliity** API to get more time 
 ### Dead Letter Queue
+- Useful for debugging! 
+- After **MaximumReceives** threshold is exceeded 
+- Message goes into a dead letter queue (DLQ)  
+- Messages in DLQ expire after 1minute - 14 days (14 days is best option) 
 ### Delay Queue
-### Certified Developer Concepts
+- Default = 0 seconds 
+- Can be set up to = 15 minutes 
+- Can set a per message delay using the DelaySeconds parameter 
+### Certified Developer Concepts (_important_)
+- Long Polling (_recommended_)
+  - Wait for messages to arrive if there are none in the queue 
+  - Decreases the number of API calls made to SQS 
+  - Increases efficiency 
+  - Lowers latency 
+  - Wait time = 1 second to 20 seconds 
+  - Can be set 
+    - On queue level 
+    - API level using WaitTimeSeconds 
+- Extended Client
+  - Send large files above 256kb size 
+  - Using SQS Extended Client (Java Library)
+    ```
+    +----------+      +--------------+      +--------------+
+    | Producer |----->|  SQS Queue   |      |  Consumer    |
+    +----------+      +--------------+      +--------------+
+          |                  |                  |
+          v                  |                  |
+    Small metadata message -->|----------------->|
+          |                  |                  |
+          v                  |                  |
+          |                  |                  |
+          v                  |                  |
+    Large message  ---------->|  S3 Bucket       |
+                              |                  |
+                              |                  |
+                              |                  |
+                              |<----- Retrieve large message
+    ```
+- Must Know APIs (_important_)
+  - `CreateQueue` 
+    - MessageRetentionPeriod 
+  - `DeleteQueue` 
+  - `PurgeQueue` – Delete all messages 
+  - `SendMessage` 
+    - DelaySeconds 
+  - `ReceiveMessage` 
+    - MaxNumberOfMessages – default 1, max 10  
+  - `DeleteMessage` 
+  - `ReceiveMessageWaitTimeSeconds` – Long Polling 
+  - `ChangeMessageVisibility` – change message timeout in case need more time to process a message 
+  - **Batch APIs** help decrease costs, they exist for 
+    - `SendMessage` 
+    - `DeleteMessage` 
+    - `ChangeMessageVisibility` 
 ### Redrive to Source
-### Long Polling (_recommended_)
-### Must Know APIs (_important_)
+- After fixing the reason of the failed to process message 
+- We can redrive messages from DQL back to source queue without writing any code 
 ### FIFO Queue
+- Limited throughput 
+  - No batching = 300 messages/second 
+  - With batching = 3000 messages / seconds 
+- Exactly-once send – no duplicates 
+- Messages are processed in order by the consumer 
+- Name has to end with .fifo 
+- Deduplication 
+  - Interval 5 minutes 
+  - Methods 
+    - Content-based – will do a SHA-256 hash of message body 
+    - Explicitly provide a Message Duplication ID 
+- Message Grouping 
+  -  All messages will be in order for the same consumer 
+  - Have to specify MessageGroupID 
+  - Different Group ID can have different consumer – parallel processing 
+  - Ordering across groups is not gauranteed 
 ### SQS + SNS - Fan Out Pattern
+```
+                                                                     +---------------------+
+                                                                     |                     |
+                                                                    /| SQS Queue 1         |
+                                                                   / |                     |
+                                                                  /  +---------------------+
+                                                                 /                          
+                                                               /-                           
+                                                              /      +---------------------+
+                                                             /       |                     |
+                                                            /        | SQS Queue 2         |
+                +---------------+          +----------------       /-|                     |
+                |               |          |               |     /-  +---------------------+
+                |               |          |               |   /-                           
+ S3 Object      |   S3 Bucket   |          |    SNS        | /-                             
+ Created        |               | ---------+    TOPIC      --                               
+ Event          |               |          |               |                                
+                |               |          |               |             +--------------+   
+                +---------------+          +---------------+--\          |              |   
+                                                               ---\      |              |   
+                                                                   ---\  |   Lambda     |   
+                                                                       --|   Function   |   
+                                                                         |              |   
+                                                                         |              |   
+                                                                         +--------------+   
+```
 ## 🎙️ SNS
+- Pub/Sub with Topic param 
 ### Subscribers
+- SQS 
+- Lambda 
+- Kinesis Data Firehose 
+- Emails 
+- SMS 
+- Mobile notifications 
+- HTTPS Endpoints 
 ### Publishers
+- CloudWatch Alarms 
+- AWS budgets 
+- Lambda 
+- ASG Notifications 
+- S3 Bucket events 
 ### Process to Publish
+- SDK 
+  - Create topic 
+  - Subscribe 
+  - Publish to topic 
+- Direct Publish – for mobile apps SDK 
+  - Create platform app 
+  - Create platform endpoint 
+  - Publish to platform endpoint 
+  - Works with 
+    - GCM – Google  
+    - APNS – Apple  
+    - ADM – Amazon  
 ### Encryption
-### Access Control
-### Notes (_important_)
-- **ALL THE BELOW ARE IMPORTANT PRACTICES FOR AWS TEST**
-## 🎙️ Kinesis
-### Streams
+- HTTPS 
+- KSM 
+- Client-side 
+### Access Controls 
+- IAM policies 
+### Access Policies
+- Similar to S3 bucket policies 
+- Useful for cross-account access to topics 
+- Useful for allowing other services like S3 to write to an SNS topic 
+### Message Filtering
+- JSON policy used to filter mesages sent to SNS topic's subscription
+- If a subscription does not have a filter policy, it receives every message
+## 🎙️ Kinesis (_important_)
+### Data Streams
+- Stream big data 
+- Streams are made of Shards 
 ### Producers
+- Send data into Kinesis Data Streams 
+- API = `PutRecord` 
+- Types 
+  - Application 
+  - Client 
+  - SDK – Simple producer 
+  - KPL – Kinesis Producer Library – **Enables**  
+    - Batch – **use** with `PutRecords` to **reduce costs**
+    - Compression 
+    - Retries 
+  - Kinesis Agent – monitor log files 
+- Record – Sent by producers 
+  - Partition Key – define which shard will the record go to 
+  - Data Blob – up to 1MB  
+  - **Speed** = 1MB/second or 1000 message/second 
+- `ProvisionedThroughputExceeded` Error 
+  - When one shard is overwhelmed with throughput = more than 1 records/sec it will throw this error 
+  - **Solutions** 
+    - Use highly distributed partition key – like user_id 
+    - Exponential Backoff Retries   
+    - Increase shards – scaling  
 ### Consumers
-### Client Library //TODO
-### Operations //TODO
-### Data Firehose //TODO
-### Data Analytics //TODO
-### Data Ordering for Kinesis vs SQS FIFO //TODO
-## 🎙️ SQS vs SNS vs Kinesis //TODO
+- Apps (KCL – Kinesis Client Library / SDK) 
+- Lambda  
+- Kinesis Data Firehose 
+- Kinesis Data Analytics 
+- Record – Received by consumer 
+  - Partition Key – define which shard will the record go to 
+  - Sequence no. - where the record was in the shard 
+  - Data Blob 
+  - Speed 
+    - Classic Fan-out– 2MB/second/shard for all consumers 
+      - API – GetRecords() 
+      - Pull approach 
+      - Max 5 GetRecords API calls / second 
+      - Latency 200ms 
+      - Minimize Cost  
+    - Enhanced Fan-out – 2MB/second/shard/consumers 
+      - API – SubscribeToShard() 
+      - Push approach by shard 
+      - Latency 70ms because of the subscribe approach 
+      - 5 Consumers apps (KCL) per data stream 
+        - Can be upgraded by submitting a ticket to AWS  
+    - Lambda 
+      - Supports both Classic & Enhanced 
+      - Read records in batches 
+        - Configure batch size 
+        - Process up to 10 batches per Shard simultaneously 
+      - Errors = Lambda retries until succeeds or data expired
+### Retention
+- 1 day – 365 days 
+- Can reprocess / replay data
+- Data can't be deleted – **immutable**
+- Data that shares the same partition key go to same shard (key based ordering) 
+### Capacity Modes 
+- Provisioned – historic > choose if you know capacity in advanced 
+  - Choose number of shards – scale manually or using API 
+  - Data in = Each shard gets 1MB/second or 1000 record /second 
+  - Data out 
+    - Classic = Each shard gets 2MB/second  
+    - Enhanced = Fan-out consumer (SNS => SQS) 
+  - Cost = Pay per Shard-provisioned/hour 
+- On-demand – new > choose if you don't know capacity in advanced 
+  - Capacity will be adjusted on demand 
+  - Default capacity provisioned 
+    - 4MB/second 
+    - 4000 record/second 
+  - Scales automatically based on observed throughput peak during last 30 days 
+  - Cost = Pay per stream/hour & data in or out per GB 
+### Client Library (KC)
+- A Java Library that helps read record from Kinesis Data Stream with distributed sharing the read workload
+- Each shard is to be read by only one KCL instance
+  - 4 shards = max 4 KCL instance (EC2 instances running KCL)
+  - 6 shards = max 6 KCL instance (EC2 instances running KCL)
+### Operations
+- Shard Splitting
+  - Used to increase the Stream capacity
+  - Used to divide a "**hot shard**"
+  - 1MB/s data per shard > 2MB/s per two shards
+  - Cannot split a shard into more than two shard in a single operation
+- Shard Merging
+  - Decrease the Stream capacity
+  - Decrease the cost
+  - Group two shards with low traffic "**cold shards**"
+### Data Firehose
+- Near RealTime
+  - 60 seconds latency minimum for non full batches
+  - Or minimum 1MB of datat at a time
+- Can take data from producers
+  - Kenises Data Streams (_Most Common_)
+  - Applications
+  - Client (mobile, browser, pc)
+  - SDK
+  - KPL
+  - Kinesis Agent
+  - AWS CloudWatch (logs & event)
+  - AWS IoT
+- Destinations
+  - Amazon S3
+  - Amazon Redshift
+    - Writes data to Amazon S3
+    - Data Firehose issues a request to copy data from S3 to Redshift
+  - Amazon OpenSearch
+  - HTTP custom destination
+  - 3rd party 
+    - mongoDB
+    - Datadog
+    - etc...
+- Faild Data
+  - Can be sent to a backup S3 Bucket
+### Data Streams vs Data Firehose (_important_)
+
+Data Streams | Data Firehose 
+---------|----------
+ -- Streaming Service for ingesting data at scale<br>-- Write custom code (producer/consumer) | Load streaming data into S3/Redshit/OpenSearch/3rd pary/Custom HTTP 
+ Manage Scaling (shard splitting/merging) | Fully Managed 
+ Real-time (200ms) | Near real-time (buffer time min. 60sec)
+Data storage 1-365 days | No data storage
+Supports replay capability | No replay capability
+### Data Analytics
+- For **SQL application**
+  - Sources
+    - Kenises Data Streams
+    - Kenises Data Firehose
+  - SQL Statement to perform real-time analytics
+    - Or join some reference data from S3 
+  - Sinks
+    - Kinesis Data Streams
+      - AWS Lambda
+      - Applications
+    - Kinesis Firehose
+      - Amazon S3
+      - Amazon Redshift
+      - etc...
+- For **Apache Flink**
+  - A lot more powerful than just standard SQL
+  - Sources
+    - Kinesis Data Streams
+    - Amazon MSK
+### Data Ordering for Kinesis vs SQS FIFO
+- Kinesis
+  - Use a unique partition key different data distributes equally on shards
+- SQS FIFO
+  - Use Group ID so each group will maintain the same order within this group
+## 🎙️ SQS vs SNS vs Kinesis
+Attribute | SQS | SNS | Kinesis
+------- | ---------|----------|---------
+**DATA** | Consumer pulls data<br>Data is deleted after being consumed | Pub/Sub<br>Push data to many subscribers<br>Data is not persisted (lost if not delivered) | Standard: pull data (2MB/shard)<br>Enhanced-fan out: push data (2MB/shard/consumer)<br>Can replay data
+**Provision** | Managed Service<br>No need to provision throughput<br>Can have as many consumers as we want | Managed Service<br>No need to provision throughput<br>Up to 12,500,00 subscribers<br>Up to 100,000 topics | Promisioned Mode OR on-demand capacity mode
+**Other** | Ordering gaurantees only on FIFO queues<br>Individual message delay capability | Integrates with SQS for fan-out architecture<br>FIFO capability for SQS FIFO | Ordering at shard level<br>Data expires after X days<br>Meant for real-time big data, analytics, and ETL

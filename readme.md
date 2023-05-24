@@ -3324,3 +3324,333 @@ Attribute | SQS | SNS | Kinesis
   - Remember the AWS Lambda limits
   - Use Layers where necessary
 - Avoid using recursive code, never have a Lambda function call itself
+# 2️⃣2️⃣ AWS Serverless: DynamoDB
+## 🧱 What is it?
+- Fully managed NoSQL databases are 
+  - Non-relational databases and are distributed
+  - Do not support query joins
+  - Scales Horizontally
+## 🧱 How it works?
+DynamoDB is made of Tables
+- Each table has a Primary Key (must be decided at creation time)
+- Each table can have an infinite number of items (= rows)
+- Each item has attributes (can be added over time – can be null)
+- Maximum size of an item is 400KB
+## 🧱 Supported Data Types
+- Scalar Types
+  - String
+  - Number
+  - Binary
+  - Boolean
+  - Null
+- Document Types
+  - List
+  - Map
+- Set Types
+  - String Set
+  - Number Set
+  - Binary Set
+## 🧱 Primary Keys
+### Partition Key (HASH)
+- Must be unique
+### Partition Key + Sort Key (HASH + RANGE)
+- Combination must be unique
+- Data is groupred by partition key
+## 🧱 Capacity Modes
+### Provisioned Mode (default)
+- Specify number of reads/writes per second
+- Provide RCU & WCU
+- Can tap to **Burst Capacity**
+- Can setup auto-scaling to meet demand
+- If Burst Capacity is consumed it throws `ProvisionedThroughputExceededException`
+- Best Practice
+  - Exponential Backoff retry
+### On-Demand Mode
+- Automatically scales
+- Pay for what you use
+- More expensive
+### WCU
+- 1 WCU = 1 Write / Second = 1KB size
+- Rounded to 1, so 2.5KB requires 3WCU
+### RCU
+- Strongly Consistent Reads
+  - 1 RCU = 2 Strongly Consistent Reads / Second = 4KB
+- Eventually Consistent Reads
+  - 1 RCU = 1 Strongly Consistent Reads / Second = 4KB
+- Rounded to 4, so 6KB requires 2RCU 
+### Throttling
+- Reasons
+  - Hot Keys - One partition key is being read too many times (e.g. popular item)
+  - Hot Partition - When partition key is very unique, since every single partition key always goes to same partition
+  - Very Large Items
+- **Solutions**
+  - Exponential Backoff
+  - Distribute partition keys
+  - If RCU - Use DynamoDB Accelerator (**DAX**)
+### Autoscaling
+- Minimum
+- Maximum
+- Target Utilization %
+## 🧱 Operations
+### Writing Data
+- `PutItem`
+  - New item or fully replace (Same primary key)
+- `UpdateItem`
+  - Edit existing item's attributes OR adds new item if primary key not found
+- Conditional Writes
+  - Accept a write/update/delete only conditionally
+  - Otherwise returns an error
+  - Why use it?
+    - Helps with concurrent access to items
+### Read Data
+- `GetItem`
+  - Read based on Primary key
+  - Primary Key can be HASH or HASH+RANGE
+  - Eventually Consistent Read (default)
+  - Option to use Strongly Consistent Reads (more RCU - might take longer)
+  - `ProjectionExpression` can be specified to retrieve only certain attributes
+- `Query` - returns items based on:
+  - KeyConditionExpression
+    - Partition Key value (must be = operator) – required
+    - Sort Key value (=, <, <=, >, >=, Between, Begins with) – optional
+  - FilterExpression
+    - Additional filtering after the Query operation (before data returned to you)
+    - Use only with non-key attributes (does not allow HASH or RANGE attributes)
+  - Returns:
+    - The number of items specified in Limit
+    - Or up to 1 MB of data
+- `Scan`
+  - Export entire table
+  - Consumes a lot of RCU
+- `DeleteItem`
+  - Delete an individual item
+  - Ability to perform a conditional delete
+- `DeleteTable`
+  - Delete a whole table and all its items
+  - Much quicker deletion than calling DeleteItem on all items
+### Batch Operations
+- `BatchWriteItem`
+  - Up to
+    - 25 PutItem and/or DeleteItem in one call
+    - 16 MB of data written
+    - 400 KB of data per item
+  - Can’t update items (use UpdateItem)
+  - **UnprocessedItems** for failed write operations (exponential backoff or add WCU)
+- `BatchGetItem`
+  - Return items from one or more tables
+  - Up to
+    - 100 items
+    - 16 MB of data
+  - Items are retrieved in parallel to minimize latency
+  - **UnprocessedKeys** for failed read operations (exponential backoff or add RCU)
+### PartiQL
+- SQL-compatible query language for DynamoDB
+- Can
+  - Select
+  - Insert
+  - Update
+  - Delete
+- Cannot 
+  - Join
+  - Run on multiple tables
+## 🧱 Conditional Writes
+### Supported Operations
+- PutItem
+- UpdateItem
+- DeleteItem
+- BatchWriteItem
+### Conditions
+- `attribute_exists`
+- `attribute_not_exists`
+- `attribute_type`
+- `contains` (for string)
+- `begins_with` (for string)
+- ProductCategory `IN` (:cat1, :cat2) and Price `between` :low and :high
+- `size` (string length)
+### Note
+- _Filter Expression_ filters the results of read queries
+- _Condition Expressions_ are for write operations
+### Use Cases
+- Make sure item is not overwritten
+- Make sure partition / sort key is not overwritten
+- Remove all HTTP urls from our db for security
+## 🧱 Indexing
+### Local Secondary Index (LSI)
+- Alternative Sort Key
+- Supports
+  - String
+  - Number
+  - Binary
+- Max of 5 per table
+- Defined at table creation time
+### Global Secondary Index (GSI)
+- Alternative Primary Key
+- Index Key Supports
+  - String
+  - Number
+  - Binary
+- Can be added/modified after table creation
+- **Use Case** 
+  - Having a table with Sort Key where **you want to query sort key**
+  - Create a **GSI** and set the **Sort Key** as **Partition Key**
+### Throttling
+- LSI
+  - Uses WCUs and RCUs of main table
+- GSI
+  - If writes are throttled on GSI > main table will be throttled
+  - Must provision RCUs & WCUs for the index
+## 🧱 Conditional Locking
+### What is it?
+- A strategy to ensure an item hasn’t changed before you update/delete it
+### How it works?
+- Each item has an attribute that acts as a version number
+- Using **Conditional Writes**
+- Check if version number is still the same e.g. version=1
+- Only if true perform operation
+## 🧱 Accelerator (DAX)
+### What is it?
+- In-memory cache for DynamoDB
+### Why use it?
+- Doesn’t require application logic modification
+- Solves the “Hot Key” problem (too many reads / throttling) 
+### How it works?
+- Create a DAX Cluster
+- Client interacts with DAX Cluster
+- DAX Cluster interacts with DynamoDB
+### Limits
+- 5 minutes TTL for cache (default)
+- Up to 10 nodes in the cluster
+### DAX vs ElastiCache (Use them together)
+- Use DAX for simple queries
+  - Individual objects cache
+  - Query & Scan cache
+- Use ElastiCache for logic application (scan > sum > etc..)
+  - Store aggeration result
+## 🧱 DynamoDB Streams
+### What is it?
+- Item level modifications
+  - Create
+  - Update 
+  - Delete
+### Use Cases
+  - React to changes in real-time
+    - Welcome email
+  - Analytics
+  - Cross-region replication
+### Integrations
+- Sent To
+  - Kinesis Data Streams
+- Read By
+  - AWS Lambda
+    - Define an **Event Source Mapping** to read from DynamoDB Streams
+    - Provide permissions fro Lambda
+    - Lambda Function invokes synchronously
+  - Kinesis Client Library apps
+### Information to be Written
+- `KEYS_ONLY` – only the key attributes of the modified item
+- `NEW_IMAGE` – the entire item, as it appears after it was modified
+- `OLD_IMAGE` – the entire item, as it appeared before it was modified
+- `NEW_AND_OLD_IMAGES` – both the new and the old images of the item
+### Notes
+- Records are not retroactively populated in a stream after enabling it, only new ones will
+## 🧱 Time To Live (TTL)
+### What is it?
+- Similar to Redis cache TTL
+### How use it?
+- Enable it on Table level
+- TTL attribute must be a **Number**
+- Expired items deleted within 48 hours
+- Expired items are also deleted from LSI & GSI
+### Use Cases
+- **Session Storage** is perfect example
+- Reduce storage cost
+- Adhere to regulatory obligations
+## 🧱 DynamoDB CLI
+- `--projection-expression`: one or more attributes to retrieve
+- `--filter-expression`: filter items before returned to you
+- General AWS CLI Pagination options (e.g., DynamoDB, S3, …)
+  - `--page-size`: specify that AWS CLI retrieves the full list of items but with a larger number of API calls instead of one API call (default: 1000 items)
+  - `--max-items`: max. number of items to show in the CLI (returns NextToken)
+  - `--starting-token`: specify the last NextToken to retrieve the next set of items
+## 🧱 DynamoDB Transactions
+### What is it?
+- All-Or-Nothing operations
+  - Add
+  - Update
+  - Delete
+### Why use it?
+- Provides (ACID)
+  - Atomicity
+  - Consistency
+  - Isolation
+  - Durability
+### Costs
+- Consumes 2x WCUs & RCUs
+### Operations
+- TransactGetItems
+  - One or more GetItem operations
+- TransactWriteItems - One or more operations
+  - PutItem
+  - UpdateItem
+  - DeleteItem
+### Use Cases
+- Financial transactions
+- Managing orders
+- Multiplayer games
+## 🧱 DynamoDB vs ElastiCache for Session State Cache
+- DynamoDB
+  - Serverless auto scaling **YES PLEASE SERVERLESS**
+- ElastiCache
+  - In-memory **YES PLEASE**
+- EFS
+  - Must be attached to EC2 instances as a network drive **OKAY**
+- EBS & Instance Store
+  - Can only be used for local caching so **NO**
+- S3
+  - Has high latency
+  - Not meant for small objects so **NO**
+## 🧱 DynamoDB Write Sharding (Hot Shards)
+- Add a **suffix/prefix** to **Partition Key** value
+## 🧱 Write Types
+### Concurrent Writes (_Optimistic Locking_)
+- Use **Conditional Writes** to only update is item is untouched
+### Atomic Writes
+- Increase value relative to the current value
+  - Current value = 1
+  - User A INCREASE value by +1
+  - User B INCREASE value by +1
+  - New current value = 3
+### Batch Writes
+- When a user write/updates many items at a time
+## 🧱 DynamoDB + S3
+### Large Objects Pattern
+- Client uploads image
+- Store object in S3 and get ObjectKey
+- Store this metadata in DynamoDB with image URL pointing to S3
+- Client reads metadata from DynamoDB then gets data from S3
+### Index S3 Objects Metadaata (Search Capabilities)
+- Client uploads file to S3
+- S3 Events invokes Lambda
+- Lambda stores Object's metadata in DynamoDB Table
+- Client later can search for items in DynamoDB and fetch the ones he wants from S3
+## 🧱 DynamoDB Operations (_important_)
+### Table Cleanup
+- Option 1 (good)
+  - `Scan` + `DeleteItem`
+  - VERY Slow
+  - Consumes RCU & WCU
+  - EXPENSIVE
+- Option 2 (bad)
+  - `DropTable` + `Recreate` table
+  - Fast
+  - Efficient
+  - Cheap
+### Copy DynamoDB Table
+- Option 1
+  - AWS Data Pipeline copies data to S3 then writes to new table
+- Option 2 (good but takes some time)
+  - Backup
+  - Restore
+## 🧱 Backup & Restore
+- Point-in-time (PITR) like RDS
+- No performance impact

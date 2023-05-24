@@ -2991,7 +2991,7 @@ Attribute | SQS | SNS | Kinesis
 **DATA** | Consumer pulls data<br>Data is deleted after being consumed | Pub/Sub<br>Push data to many subscribers<br>Data is not persisted (lost if not delivered) | Standard: pull data (2MB/shard)<br>Enhanced-fan out: push data (2MB/shard/consumer)<br>Can replay data
 **Provision** | Managed Service<br>No need to provision throughput<br>Can have as many consumers as we want | Managed Service<br>No need to provision throughput<br>Up to 12,500,00 subscribers<br>Up to 100,000 topics | Promisioned Mode OR on-demand capacity mode
 **Other** | Ordering gaurantees only on FIFO queues<br>Individual message delay capability | Integrates with SQS for fan-out architecture<br>FIFO capability for SQS FIFO | Ordering at shard level<br>Data expires after X days<br>Meant for real-time big data, analytics, and ETL
-# 1️⃣9️⃣ AWS Serverless: Lambda
+# 2️⃣1️⃣ AWS Serverless: Lambda
 ## 🧮 What is it?
 - Virtual functions, deploy and run, no need to manage servers
 - Run on-demand

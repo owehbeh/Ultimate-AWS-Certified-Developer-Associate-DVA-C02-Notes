@@ -3654,3 +3654,217 @@ DynamoDB is made of Tables
 ## 🧱 Backup & Restore
 - Point-in-time (PITR) like RDS
 - No performance impact
+# 2️⃣3️⃣ AWS Serverless: API Gateway
+## 🎛️ Integrations
+### Lambda Function
+- Easy way to expose REST API backed by AWS Lambda
+### HTTP
+- Expose HTTP endpoints in the backend
+- Example
+  - Application Load Balancer
+- Why? Add rate limiting, caching, user authentications, API keys, etc…
+### AWS Service
+- Expose any AWS API through the API Gateway
+## 🎛️ Endpoint Types
+### Edge-Optimized (default): For global clients
+- Requests are routed through the CloudFront Edge locations (improves latency)
+- The API Gateway still lives in only one region
+### Regional
+- For clients within the same region
+- Could manually combine with CloudFront (more control over the caching strategies and the distribution)
+### Private
+- Can only be accessed from your VPC using an interface VPC endpoint (ENI)
+- Use a resource policy to define access
+## 🎛️ Authentication
+### User Authentication
+- IAM Roles
+- Cognito
+- Custom Authorizer
+### Custom Domain Name HTTPS
+- Must setup CNAME or A-alias record in Route 53
+## 🎛️ Deployment
+### Deployment Stages
+- Use the naming you like for stages (dev, test, prod)
+- Each stage has its own configuration parameters
+### Stage Variables
+- Are like environment variables for API Gateway
+- Use them to change often changing configuration values
+- Can be used in
+  - Lambda function ARN
+  - HTTP Endpoint
+  - Parameter mapping templates
+- Use Cases
+  - Configure HTTP endpoints your stages talk to (dev, test, prod…)
+  - Pass configuration parameters to AWS Lambda through mapping templates
+- Format
+  - `${stageVariables.variableName}`
+### Stage Variables + Lambda Aliases
+- Create a stage variable to indicate the corresponding Lambda alias
+- Our API gateway will automatically invoke the right Lambda function!
+- No need to update API Gateway
+### Canary Deployment
+- Enabled on stage level
+- Choose % of traffic to newly deployed stage
+- Blue/Green Deployment
+## 🎛️ Integration Types
+### MOCK
+- Returns a response without sending the request to the backend
+### HTTP / AWS (Lambda & AWS Services)
+- Setup data mapping using **mapping templates** for the request & response
+### AWS_PROXY (Lambda Proxy)
+- Incoming request from the client is forwarded as input to Lambda
+- Lambda responsible for the logic of request / response
+- No mapping template
+- Headers, query strings, etc.. are passed as arguments
+### HTTP_PROXY
+- Usually to AWS Service
+- HTTP Headers can be added and passed to the backend
+## 🎛️ Mapping Templates
+### What is it?
+- Used to modify request / responses
+- Used to Rename / Modify query string parameters
+- Used to Modify body content
+- Used to Add headers
+- Remove unnecesary data
+### How it works?
+- Content-Type must
+  - application/json
+  - OR application/xml
+### Use Cases
+- Convert JSON to XML for our SOAP API in the backend (_important_)
+- Change the values of the request to match our code
+## 🎛️ Open API
+### What is it?
+- Common way of defining REST APIs, using API definition as code
+### Why use it?
+- Import/Export existing OpenAPI 3.0 spec to API Gateway
+- Generate SDK
+## 🎛️ Request Validation
+### What is it?
+- Can configure API Gateway to perform basic validation of an API request before proceeding with the integration request
+### How it works?
+- Checks if the required parameters in an incoming request are included and non-blank
+  - URI
+  - Query string
+  - Headers 
+- Checks if the request payload adheres to the configured JSON Schema request model of the method
+### Why use it?
+- Reduces unnecessary calls to the backend
+## 🎛️ Caching
+### Options
+- Default TTL (time to live) is 300 seconds (min: 0s, max: 3600s)
+- Defined per stage
+- Can Override cache settings per method
+### Invalidations
+- Clients can invalidate the cache with **header**: `Cache-Control: max-age=0` (with proper IAM authorization)
+## 🎛️ Usage Plans
+- Who can access one or more deployed API stages and methods
+- How much and how fast they can access them
+- Uses API keys to identify API clients and meter access
+- Configure throttling limits and quota limits that are enforced on individual client
+## 🎛️ API Keys
+- alphanumeric string values to distribute to your customers
+- Can use with usage plans to control access
+- **Throttling** limits are applied to the API keys
+- **Quotas** limits is the overall number of maximum requests
+## 🎛️ Usage Plans + API Keys
+### How it works?
+1. Create one or more APIs, configure the methods to require an API key, and deploy the APIs to stages.
+2. Generate or import API keys to distribute to application developers (your customers) who will be using your API.
+3. Create the usage plan with the desired throttle and quota limits.
+4. Associate API stages and API keys with the usage plan.
+- **Callers** of the API must **supply an assigned API key** in the `x-api-key` header in requests to the API
+## 🎛️ Loggin & Tracing
+### CLoudWatch Logs
+- Information about request/response
+- Enabled at stage level with log level
+  - ERROR
+  - DEBUG
+  - INFO
+- Can override per api
+### X-Ray
+- Tracing for extra information about performance and latency
+### CloudWatch Metrics (Detailed Metrics)
+- Enabled at stage level
+- Provides information about
+  - CacheHitCount - Cache efficiency
+  - CacheMissCount - Cache efficiency
+  - Count - API requests / period
+  - IntegrationLatency - Time of API Gateway > backend > API Gateway
+  - Latency - Time of Client > API Gateway > Integration ... > API Gateway > Client
+  - 4XXError - Client Side
+    - 400 - Bad Request
+    - 403 - Access Denied / WAF
+    - 429 - Quota Exceeded / Throttle = Too Many Requests
+  - 5XXError - Server Side
+    - 502 - Incompatible output from Lambda
+    - 503 - Service Unavailable Exception
+    - 504 - Integration Failure
+      - Endpoint Request Timed-out Exception
+## 🎛️ Throttling
+### Account Limit
+- Default 10,000/sec accross all API
+## 🎛️ CORS
+### How it works?
+- Enabled at api level
+- The OPTIONS pre-flight request must contain the following headers
+  - `Access-Control-Allow-Methods`
+  - `Access-Control-Allow-Headers`
+  - `Access-Control-Allow-Origin`
+## 🎛️ Security
+### Resource Policy
+- Allow for cross account access (with IAM Security)
+- Allow for a specific source IP address
+- Allow for a VPC Endpoint
+### IAM
+- Great for users / roles already within your AWS account, + resource policy for cross account
+- Handle authentication + authorization
+- Leverages Signature v4
+### Cognito User Pools
+- Authentication = Cognito User Pools
+- Authorization = API Gateway Methods
+- No custom implementation required
+### Lambda Authorizer
+- Token-based authorizer (bearer token)
+- Authentication = External
+- Authorization = Lambda Function
+## 🎛️ WebSocket API
+### Why use it?
+- Enables stateful application use cases
+- Real-time applications
+### Works With
+- Lambda
+- DynamoDB
+- HTTP Endoints
+### Connecting to the API
+- WebSocket URL
+  - `wss://[some-uniqueid].execute-api.[region].amazonaws.com/[stage-name]`
+### Client to Server Messaging
+- WebSocket URL
+  - `wss://abcdef.execute-api.us-west-1.amazonaws.com/dev`
+- **ConnectionID is re-used**
+### Server to Client Messaging
+- WebSocket URL
+  - `wss://abcdef.execute-api.us-west-1.amazonaws.com/dev`
+### Connection URL Operations
+
+Operation | Action 
+---------|----------
+ POST | Sends a message from the Server to the connected WS Client 
+ GET | Gets the latest connection status of the connected WS Client 
+ DELETE | Disconnect the connected Client from the WS connection 
+- Connection URL
+  - `wss://abcdef.execute-api.us-west-1.amazonaws.com/dev/@connections/connectionId`
+### WebSocket API – Routing
+- You request a route selection expression to select the field on JSON to route from
+- Sample expression: `$request.body.action`
+- The result is evaluated against the route keys available in your API Gateway
+- The route is then connected to the backend you’ve setup through API Gateway
+- If no routes => sent to `$default`
+- ROUTE KEY TABLE (API Gateway)
+  - `$connect`
+  - `$disconnect`
+  - `$default`
+  - `join`
+  - `quit`
+  - `delete`

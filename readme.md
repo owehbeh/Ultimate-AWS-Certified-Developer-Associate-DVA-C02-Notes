@@ -4355,3 +4355,87 @@ describe("StateMachineStack", ()=>{
   })
 })
 ```
+# 2️⃣7️⃣ Cognito: Cognito User Pools, Cognito Identity Pools, and Cognito Sync
+## 🔐 Cognito User Pools vs Identity Pools
+| Cognito User Pools<br>(Authentication = Identity Verification) | Cognito Identity Pools<br>(Authorization = Access Control)   |
+|------------------------------------------------------------|---------------------------------------------------------|
+|Database of users for your web and mobile application     |Obtain AWS credentials for your users                  |
+|Allows federating logins through Public Social, OIDC, SAML |Users can login through Public Social, OIDC, SAML & Cognito User Pools |
+|Customizable hosted UI for authentication (including the logo) |Users can be unauthenticated (guests) |
+|Triggers with AWS Lambda during the authentication flow |Users are mapped to IAM roles & policies, can leverage policy variables |
+|Ability to adapt the sign-in experience to different risk levels (MFA, adaptive authentication, etc.) | |
+## 🔐 Cognito vs IAM
+### Cognito Use Cases Are
+- Hundreds of users
+- Mobile users
+- Authenticate with SAML
+## 🔐 Cognito User Pools Integrations
+### API Gateway
+- Easy to integrate, enabled on API stage level
+### Application Load Balancer (ASG)
+- Must use an **HTTPS** listener to set authenticate-oidc & authenticate-cognito rules
+- `OnUnauthenticatedRequest`
+  - Authenticate (default)
+  - Deny
+  - Allow
+## 🔐 Lambda Trigger
+### What is it?
+- Allow to react to events happening in User Pool
+
+| User Pool Flow | Operation                           | Description                                                   |
+| -------------- | ----------------------------------- | ------------------------------------------------------------- |
+| Authentication | Pre Authentication Lambda Trigger   | Custom validation to accept or deny the sign-in request       |
+|                | Post Authentication Lambda Trigger  | Event logging for custom analytics                            |
+|                | Pre Token Generation Lambda Trigger | Augment or suppress token claims                              |
+| Sign-Up        | Pre Sign-up Lambda Trigger          | Custom validation to accept or deny the sign-up request       |
+|                | Post Confirmation Lambda Trigger    | Custom welcome messages or event logging for custom analytics |
+|                | Migrate User Lambda Trigger         | Migrate a user from an existing user directory to user pools  |
+| Messages       | Custom Message Lambda Trigger       | Advanced customization and localization of messages           |
+| Token Creation | Pre Token Generation Lambda Trigger | Add or remove attributes in ID tokens                         |
+## 🔐 Hosted Authentication UI
+### What is it?
+- A ready-made UI to handle sign-up and sign-in workflows
+- Can customize with a custom logo and custom CSS
+### Custom Domain (_important_)
+- Must create an ACM certificate in **us-east-1**
+- Domain must be defined in the “App Integration” section
+## 🔐 Adaptive Authentication
+### What is it?
+- Block sign-ins or require MFA if the login appears suspicious
+- Integration with CloudWatch Logs
+  - Sign-in attempts
+  - Risk score
+  - Failed challenges
+  - Etc..
+## 🔐 JWT - JSON Web Token
+- CUP issues JWT tokens (Base64 encoded):
+  - **Header**
+  - **Payload**
+  - **Signature**
+- The signature must be verified to ensure the JWT can be trusted
+## 🔐 Cognito Identity Pools (Federated Identities)
+### What is it?
+- Get identities for "users" so they obtain temporary AWS credentials
+- Users can then access AWS services directly or through API Gateway
+- Cognito Identity Pools allow for **unauthenticated (guest) access**
+### IAM Roles
+- The IAM policies applied to the credentials are defined in Cognito
+- They can be customized based on the `user_id` for fine grained control
+- Default IAM roles for authenticated and guest users
+- Define rules to choose the role for each user based on the user’s ID
+- You can partition your users’ access using **policy variables**
+```JSON
+{
+  "version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": ["s3::ListBucket"],
+      "Effect": "Allow",
+      "Resource": ["arn:aws:s3:::mybucket"],
+      "Condition": {"StringLike":{"s3:prefix":["${cognito-identity.amazonaws.com:sub}/*"]}} ⬅️
+    }
+  ]
+}
+```
+## 🔐 Quiz Notes
+- Cognito Sync is deprecated you can use AWS AppSync

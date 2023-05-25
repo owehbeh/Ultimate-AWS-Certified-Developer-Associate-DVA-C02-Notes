@@ -4100,3 +4100,258 @@ DynamoDB is made of Tables
 - Automated code reviews for static code analysis (development)
 ### CodeGuru Profiler
 - Visibility/recommendations about application performance during runtime (production)
+# 2️⃣5️⃣ AWS Serverless: SAM (Serverless Application Model)
+## 🪄 What is it?
+- Framework for developing and deploying serverless applications
+- All the configuration is YAML code
+- Generate complex CloudFormation from simple SAM YAML file
+- Built on CloudFormation
+- Requires the Transform and Resources sections
+## 🪄 Recipe / Template
+- Converted to CloudFormation Template
+### Transform Header indicates it’s SAM template
+- Transform: 'AWS::Serverless-2016-10-31'
+### Write Code
+- AWS::Serverless::Function
+- AWS::Serverless::Api
+- AWS::Serverless::SimpleTable
+### Package & Deploy (_important_)
+- aws cloudformation package = `sam package`
+- aws cloudformation deploy = `sam deploy`
+## 🪄 Deployment
+1. SAM Template + Application Code > Build app locally using `sam build` (_transform_) ⤵️ 
+2. CloudFormation Template + Application Code > Package the app  (_zip & upload `sam package`OR `aws cloudformation package`_) ⤵️
+3. S3 Bucket > Deploy the app (_create/execute ChangeSet `sam deploy` OR `aws cloudformation deploy`_)
+4. CloudFormationStack (_created_)
+## 🪄 CLI Debugging
+### Run Locally
+- Provides Lambda-like execution env
+- Can
+  - Build
+  - Test
+  - Debug
+### AWS Toolkit
+- Step-through debugging
+## 🪄 Policy Template (_important_)
+### What is it?
+- List of templates to apply permissions for Lambda Functions
+### Examples
+- `S3ReadPolicy`: Gives read only permissions to
+objects in S3
+- `SQSPollerPolicy`: Allows to poll an SQS queue
+- `DynamoDBCrudPolicy`: CRUD = create read update delete
+```YAML
+MyFunction:
+  Type: 'AWS::Serverless::Function'
+  Properties:
+    CodeUri: ${codeuri}
+    Handler: hello.handler
+    Runtime: python2.7
+    Policies:
+      - SQSPollerPolicy: ⬅️
+          QueueName:
+            !GetAtt MyQueue.QueueName
+```
+## 🪄 SAM + CodeDeploy
+- SAM natively uses CodeDeploy to update Lambda Functions
+### Enables
+- Traffic Shifting feature
+- Pre and Post traffic hooks features to validate deploymen (before the traffic shift starts and after it ends)
+- Easy & automated rollback using CloudWatch Alarms
+### Configuration
+- `AutoPublishAlias`
+  - Detects when new code is being deployed
+  - Creates and publishes an updated version of that function with the latest code
+  - Points the alias to the updated version of the Lambda function
+- `DeploymentPreference`
+  - Canary
+  - Linear
+  - AllAtOnce
+- `Alarms`
+  - Alarms that can trigger a rollback
+- `Hooks`
+  - Pre and post traffic shifting Lambda functions to test your deployment
+```YAML
+Resources:
+  MyLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs12.x
+      CondeUri: s3://bucket/code.zip
+
+      AutoPublishAlias: live ⬅️
+
+      DeploymentPreference: ⬅️
+        Type: Canary10Percent10Minutes
+        Alarms: ⬅️
+          # A list of alarms that you want to monitor
+          - !Ref AliasErrorMetricGreaterThanZeroAlarm
+          - !Red LatestVersionErrorMetricGreaterThanZeroAlarm
+        Hooks: ⬅️
+          # Validation Lambda functions that are run before & after traffic shifting
+          PreTraffic: !Ref PreTrafficLambdaFunction
+          PostTraffic: !Ref PostTrafficLambdaFunction
+```
+### Local Capabilities
+- **Locally start AWS Lambda**
+  - `sam local start-lambda`
+  - Starts a local endpoint that emulates AWS Lambda
+  - Can run automated tests against this local endpoint
+- **Locally Invoke Lambda Function**
+  - `sam local invoke`
+  - Invoke Lambda function with payload once and quit after invocation completes
+  - Helpful for **generating test cases**
+  - If the function make API calls to AWS, make sure you are using the correct `--profile` option
+- **Locally Start an API Gateway Endpoint**
+  - `sam local start-api`
+  - Starts a local HTTP server that hosts all your functions
+  - Changes to functions are automatically reloaded
+- **Generate AWS Events for Lambda Functions**
+  - `sam local generate-event`
+  - Generate sample payloads for event sources
+  - Example Services
+    - S3
+    - API Gateway
+    - SNS
+    - Kinesis
+    - DynamoDB
+    - etc..
+### Commands (_important_)
+- `sam build`: fetch dependencies and create local deployment artifacts
+- `sam package`: package and upload to Amazon S3, generate CF template
+- `sam deploy`: deploy to CloudFormation
+## 🪄 Serverless Application Repository (SAR)
+### What is it?
+- Managed repository for serverless applications
+- Apps are packaged using SAM
+### Notes
+- Application settings and behaviour can be customized using **Environment variables**
+# 2️⃣6️⃣ Cloud Development Kit (CDK)
+## 🪖 What is it?
+- Infrastructure as code framework for AWS resources.
+- Simplifies cloud resource provisioning and management.
+- Enables developers to define infrastructure using familiar programming languages.
+## 🪖 Why use it?
+- Deploy infrastructure and application runtime code together
+- Great for Lambda functions
+- Great for Docker containers in ECS / EKS
+- It is typesafe! If it doesn't work it won't compile
+## 🪖 How it works?
+- Code is “compiled” into a CloudFormation template
+  1. CDK Application Constructs ⤵️
+  2. CDK CLI ⤵️
+  3. CloudFormation Template ⤵️
+  4. CloudFormation Stack ⤵️
+## 🪖 CDK vs SAM
+|     | SAM                                               | CDK                                                                                   |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 1.  | Serverless focused                                | All AWS services                                                                      |
+| 2.  | Write your template declaratively in JSON or YAML | Write infra in a programming language (JavaScript/TypeScript, Python, Java, and .NET) |
+| 3.  | Great for quickly getting started with Lambda     | It is typesafe! If it doesn't work it won't compile                                   |
+| 4.  | Leverages CloudFormation                          | Leverages CloudFormation                                                              |
+## 🪖 CDK + SAM
+- Can use SAM CLI to locally test your CDK apps
+  1. **Must first run `cdk synth`**
+  2. Generates CloudFormation Template
+  3. Can run `sam local invoke` on the template to call the function
+## 🪖 CDK Constructs
+### What is it?
+- A component that encapsulates everything CDK needs to create the final CloudFormation stack
+### AWS Construct Library
+- A collection of Constructs included in AWS CDK which contains Constructs for every AWS resource
+### Construct Hub
+- contains additional Constructs from AWS, 3rd parties, and open-source CDK community
+### Layer 1 (L1)
+- **CFN Resources** - epresents all resources directly available in CloudFormation
+- **Periodically generated from CloudFormation Resource Specification**
+- Names start with `Cfn` for example 
+  - `CfnBucket`
+- Must explicitly configure all resource properties
+  ```JS
+  const bucket = new s3.CfnBucket(this, "MyBucket", {
+    bucketName: "MyBucket"
+  }) 
+  ```
+### Layer 2 (L2)
+- Represents AWS resources but with a higher level (intent-based API)
+- Boilerplate approach
+- Provide methods that make it simpler to work with the resource
+  - `bucket.addLifeCycleRule()`
+  ```JS
+  const s3 = require('aws-cdk-lib/aws-s3');
+  const bucket = new s3.Bucket(this, 'MyBucket', {
+    versioned: true,
+    encryption: s3.BucketEncryption.KMS
+  });
+  // Returns the HTTPS URL of an S3 Object ⤵️
+  const objectUrl = bucket.urlForObject('MyBucket/MyObject')'
+  ```
+### Layer 3 (L3)
+- Can be called **Patterns**
+  - Represents multiple related records
+- Help complete common tasks in AWS
+- Examples
+  - `aws-apigateway.LambdaRestApi` represents an API Gateway backed by a Lambda function
+  - `aws-ecs-patterns.ApplicationLoadBalancerFargateService` which represents an architecture that includes a Fargate cluster with Application Load Balancer
+  ```JS
+  const api = new apigateway.LambdaRestApi(this, 'myapi', {
+    handler: backend,
+    proxy: false
+  })
+  ```
+## 🪖 Commands (_important_)
+| Command                      | Description                                        |
+| ---------------------------- | -------------------------------------------------- |
+| `npm install -g aws-cdk-lib` | Install the CDK CLI and libraries                  |
+| `cdk init app`               | Create a new CDK project from a specified template |
+| `cdk synth`                  | Synthesizes and prints the CloudFormation template |
+| `cdk bootstrap`              | Deploys the CDK Toolkit staging Stack              |
+| `cdk deploy`                 | Deploy the Stack(s)                                |
+| `cdk diff`                   | View differences of local CDK and deployed Stack   |
+| `cdk destroy`                | Destroy the Stack(s)                               |
+## 🪖 Bootstrapping
+### What is it?
+- The process of provisioning resources for CDK before you can deploy CDK apps into an AWS environment
+- **AWS Environment** = **account & region**
+### Note
+- Must run the following command for each new environment
+  - `cdk bootstrap aws://<aws_account>/<aws_region>`
+  - If not ran a policy error will occur stating there's an invalid principal
+  - **Has to be done once per region per account for CDK to work**
+## 🪖 Testing
+### How it works?
+- Use **CDK Assertions Module**
+- Verify existence of specific
+  - Resources
+  - Rules
+  - Conditions
+  - Parameters...
+### Types 
+- **Fine-grained Assertions** (common)
+  - Test specific aspects of the CloudFormation template
+    - Check if a resource has this property with this value
+- **Snapshot Tests**
+  - Test the synthesized CloudFormation template against a previously stored baseline template
+### Import Templates (_important_)
+- `Template.fromStack(MyStack)` -  stack built in CDK
+- `Template.fromString(mystring)` - stack build outside CDK
+```JS
+describe("StateMachineStack", ()=>{
+  test("synthesizes the way we expect", ()=>{
+    //Prepare the stack for assertions
+    const template = Template.fromStack(MyStack);
+
+    // Assert it creates Lambda with correct properties
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Handler: "handler",
+      Runtime: "nodejs14.x"
+    }); // ⬅️Fin-grained Assertion
+    // Assert it creates the SNS subscription
+    template.resourceCountIs("AWS::SNS:Subscription",1); // ⬅️Fin-grained Assertion
+
+    // Assert the synthesized CloudFormation template against a previously stored baseline template
+    expect(template.toJSON()).toMatchSnapshot(); //⬅️Snapshot Test
+  })
+})
+```

@@ -2953,13 +2953,13 @@ Direct private connection to a AWS
   - Can be sent to a backup S3 Bucket
 ### Data Streams vs Data Firehose (_important_)
 
-Data Streams | Data Firehose 
----------|----------
- -- Streaming Service for ingesting data at scale<br>-- Write custom code (producer/consumer) | Load streaming data into S3/Redshit/OpenSearch/3rd pary/Custom HTTP 
- Manage Scaling (shard splitting/merging) | Fully Managed 
- Real-time (200ms) | Near real-time (buffer time min. 60sec)
-Data storage 1-365 days | No data storage
-Supports replay capability | No replay capability
+| Data Streams                                                                                 | Data Firehose                                                       |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| -- Streaming Service for ingesting data at scale<br>-- Write custom code (producer/consumer) | Load streaming data into S3/Redshit/OpenSearch/3rd pary/Custom HTTP |
+| Manage Scaling (shard splitting/merging)                                                     | Fully Managed                                                       |
+| Real-time (200ms)                                                                            | Near real-time (buffer time min. 60sec)                             |
+| Data storage 1-365 days                                                                      | No data storage                                                     |
+| Supports replay capability                                                                   | No replay capability                                                |
 ### Data Analytics
 - For **SQL application**
   - Sources
@@ -2986,11 +2986,11 @@ Supports replay capability | No replay capability
 - SQS FIFO
   - Use Group ID so each group will maintain the same order within this group
 ## 🎙️ SQS vs SNS vs Kinesis
-Attribute | SQS | SNS | Kinesis
-------- | ---------|----------|---------
-**DATA** | Consumer pulls data<br>Data is deleted after being consumed | Pub/Sub<br>Push data to many subscribers<br>Data is not persisted (lost if not delivered) | Standard: pull data (2MB/shard)<br>Enhanced-fan out: push data (2MB/shard/consumer)<br>Can replay data
-**Provision** | Managed Service<br>No need to provision throughput<br>Can have as many consumers as we want | Managed Service<br>No need to provision throughput<br>Up to 12,500,00 subscribers<br>Up to 100,000 topics | Promisioned Mode OR on-demand capacity mode
-**Other** | Ordering gaurantees only on FIFO queues<br>Individual message delay capability | Integrates with SQS for fan-out architecture<br>FIFO capability for SQS FIFO | Ordering at shard level<br>Data expires after X days<br>Meant for real-time big data, analytics, and ETL
+| Attribute     | SQS                                                                                         | SNS                                                                                                       | Kinesis                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **DATA**      | Consumer pulls data<br>Data is deleted after being consumed                                 | Pub/Sub<br>Push data to many subscribers<br>Data is not persisted (lost if not delivered)                 | Standard: pull data (2MB/shard)<br>Enhanced-fan out: push data (2MB/shard/consumer)<br>Can replay data   |
+| **Provision** | Managed Service<br>No need to provision throughput<br>Can have as many consumers as we want | Managed Service<br>No need to provision throughput<br>Up to 12,500,00 subscribers<br>Up to 100,000 topics | Promisioned Mode OR on-demand capacity mode                                                              |
+| **Other**     | Ordering gaurantees only on FIFO queues<br>Individual message delay capability              | Integrates with SQS for fan-out architecture<br>FIFO capability for SQS FIFO                              | Ordering at shard level<br>Data expires after X days<br>Meant for real-time big data, analytics, and ETL |
 # 2️⃣1️⃣ AWS Serverless: Lambda
 ## 🧮 What is it?
 - Virtual functions, deploy and run, no need to manage servers
@@ -3848,11 +3848,11 @@ DynamoDB is made of Tables
   - `wss://abcdef.execute-api.us-west-1.amazonaws.com/dev`
 ### Connection URL Operations
 
-Operation | Action 
----------|----------
- POST | Sends a message from the Server to the connected WS Client 
- GET | Gets the latest connection status of the connected WS Client 
- DELETE | Disconnect the connected Client from the WS connection 
+| Operation | Action                                                       |
+| --------- | ------------------------------------------------------------ |
+| POST      | Sends a message from the Server to the connected WS Client   |
+| GET       | Gets the latest connection status of the connected WS Client |
+| DELETE    | Disconnect the connected Client from the WS connection       |
 - Connection URL
   - `wss://abcdef.execute-api.us-west-1.amazonaws.com/dev/@connections/connectionId`
 ### WebSocket API – Routing
@@ -3868,3 +3868,235 @@ Operation | Action
   - `join`
   - `quit`
   - `delete`
+# 2️⃣4️⃣ AWS CICD: CodeCommit, CodePipeline, CodeBuild, CodeDeploy
+## 🎡 Overview
+### AWS CodeCommit
+- Storing our code
+### AWS CodePipeline
+- Automating our pipeline from code to Elastic Beanstalk
+### AWS CodeBuild
+- Building and testing our code
+### AWS CodeDeploy
+- Deploying the code to EC2 instances (not Elastic Beanstalk)
+### AWS CodeStar
+- Manage software development activities in one place
+### AWS CodeArtifact
+- Store, publish, and share software packages
+### AWS CodeGuru
+- Automated code reviews using Machine Learning
+## 🎡 AWS CodeCommit
+### What is it?
+- A Git repository
+### Why use it?
+- Increased security and compliance
+- Integrated with Jenkins, AWS CodeBuild, and other CI tools
+### Security
+- Authentication
+  - SSH Keys – AWS Users can configure SSH keys in their IAM Console
+  - HTTPS – with AWS CLI Credential helper or Git Credentials for IAM user
+- Authorization
+  - IAM policies to manage users/roles permissions to repositories
+- Encryption
+  - Repositories are automatically encrypted at rest using AWS KMS
+  - Encrypted in transit (can only use HTTPS or SSH – both secure)
+- Cross-account Access
+  - Do NOT share your SSH keys or your AWS credentials
+  - Use an IAM Role in your AWS account and use AWS STS (AssumeRole API)
+## 🎡 AWS CodePipeline
+### What is it?
+- Visual Workflow to orchestrate your CICD
+### How it works?
+- Source – CodeCommit, ECR, S3, Bitbucket, GitHub
+- Build – CodeBuild, Jenkins, CloudBees, TeamCity
+- Test – CodeBuild, AWS Device Farm, 3rd party tools, …
+- Deploy – CodeDeploy, Elastic Beanstalk, CloudFormation, ECS, S3, …
+- Invoke – Lambda, Step Functions
+- Consists of stages:
+  - Each **stage** can have sequential actions and/or parallel actions
+    - Each stage can have **multiple action groups**
+  - Example: Build > Test > Deploy > Load Testing > …
+  - Manual approval can be defined at any stage
+  - Each pipeline stage can create artifacts
+  - **Artifacts** stored in an S3 bucket and passed on to the next stage
+### Troubleshooting
+- Use CloudWatch Events (Amazon EventBridge)
+  - You can create events for failed pipelines
+  - You can create events for cancelled stages
+- Use AWS CloudTrail can be used to audit AWS API calls
+### Events vs Webhooks vs Polling
+- Events
+  - CodeCommit ⤵️
+    1. EventBridge ⤵️ 
+    2. CodePipeline
+  - GitHub ⤵️
+    1. CodeStar Source Connection (GitHub App) ⤵️
+    2. CodePipeline
+- Webhooks
+  - Script ⤵️
+    - CodePipeline
+- Polling
+  - CodePipeline checks regularly for updates (bad approach)
+### Manual Approval Stage
+- Onwer of "**Action**" is "**AWS**" (_important_)
+- Manuall approving user must have required IAM Permissions for the actions
+  - `codepipeline:GetPipeline`
+  - `codepipeline:PutApprovalResult`
+### CloudFormation Integration
+- CodePipeline
+  1. CodeBuild - Builds app
+  2. `CREATE_UPDATE` - Create or update an existing CloudFormation stack
+  3. CodeBuild - Test app
+  4. `DELETE_ONLY` - Delete test CloudFormation stack
+  5. Deploy - CloudFormation production stack
+## 🎡 AWS CodeBuild
+### What is it?
+- A fully managed continuous integration (CI) service
+### Why use it?
+- Continuous scaling (no servers to manage or provision – no build queue)
+- Compile source code
+- Run tests
+- Produce software packages
+### How it works?
+- Source – CodeCommit, S3, Bitbucket, GitHub
+- Build instructions: Code file buildspec.yml or insert manually in Console
+- Output logs can be stored in Amazon S3 & CloudWatch Logs
+- **buildspec.yml**
+  - **env** – define environment variables
+    - **variables** – plaintext variables
+    - **parameter-store** – variables stored in SSM Parameter Store
+    - **secrets-manager** – variables stored in AWS Secrets Manager
+- **phases** – specify commands to run:
+  - **install** – install dependencies you may need for your build
+  - **pre_build** – final commands to execute before build
+  - **Build** – actual build commands
+  - **post_build** – finishing touches (e.g., zip output)
+- **artifacts** – what to upload to S3 (encrypted with KMS)
+  - **cache** – files to cache (usually dependencies) to S3 for future build speedup
+### CodeBuild – Inside VPC
+-  By default, your CodeBuild containers are launched outside your VPC
+   - It cannot access resources in a VPC
+- You can specify a VPC configuration:
+  - VPC ID
+  - Subnet IDs
+  - Security Group IDs
+- Then your build can access resources in your VPC e.g.
+  - RDS
+  - ElastiCache
+  - EC2
+  - ALB
+## 🎡 AWS CodeDeploy
+### What is it?
+- Deploy new applications versions to
+  - EC2 Instances
+  - On-premises servers
+  - Lambda functions
+  - ECS Services
+### Why use it?
+- Automated Rollback capability in case of failed deployments, or trigger CloudWatch Alarm
+- Gradual deployment control
+### How it works?
+- A file named **appspec.yml** defines how the deployment happens
+- **EC2/On-premises**
+  - Types
+    - **AllAtOnce**: most downtime
+    - **HalfAtATime**: reduced capacity by 50%
+    - **OneAtATime**: slowest, lowest availability impact
+    - **Custom**: define your %
+  - **CodeDeploy Agent**
+    - Must run on the target instances
+    - The EC2 Instances must have sufficient permissions to access Amazon S3 to get deployment bundles
+      | Metric                 | In-Place Deployment                                        | Blue/Green Deployment                                       |
+      | ---------------------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
+      | Deployment Approach    | Updates the existing environment                           | Creates a new environment                                   |
+      | Availability           | Application downtime during deployment                     | Zero application downtime                                   |
+      | Rollback Capability    | Limited rollback options                                   | Easy rollback by switching environments                     |
+      | Infrastructure Cost    | No additional cost                                         | Additional cost for the new environment                     |
+      | Testing                | Limited testing opportunities before deployment            | Full testing on the new environment                         |
+      | Environment Separation | Single environment used for both deployment and production | Separate environments for deployment and production         |
+      | Release Confidence     | Higher risk due to limited testing and rollback options    | Higher confidence due to thorough testing and easy rollback |
+      | Traffic Switching      | Traffic is not switched until the deployment is complete   | Traffic can be easily switched between environments         |
+      | Configuration Drift    | May encounter configuration drift over time                | Reduced configuration drift by recreating the environment   |
+      | Scaling                | Limited scalability during deployment                      | Scalability can be improved in the new environment          |
+      | Resource Utilization   | Higher resource utilization during deployment              | Optimized resource utilization in the new environment       |
+- **Lambda Platform**
+  - Types
+    -  **Linear**: grow traffic every N minutes until 100%
+       - LambdaLinear10PercentEvery3Minutes
+       - LambdaLinear10PercentEvery10Minutes
+    - **Canary**: try X percent then 100%
+      - LambdaCanary10Percent5Minutes
+      - LambdaCanary10Percent30Minutes
+    - **AllAtOnce**: immediate
+- **ECS Platform**
+  - Only Blue/Green Deployments
+  - Types
+    -  **Linear**: grow traffic every N minutes until 100%
+       - ECSLinear10PercentEvery3Minutes
+       - ECSLinear10PercentEvery10Minutes
+    - **Canary**: try X percent then 100%
+      - ECSCanary10Percent5Minutes
+      - ECSCanary10Percent30Minutes
+    - **AllAtOnce**: immediate
+- **Auto Scaling Group (ASG)**
+  - Types
+    - In-Place Deployment
+    - Blue/Green Deployment
+### Rollbacks
+- Redeploy a previously deployed revision of your application
+- Can be Automatic/Manual
+-  If a roll back happens, CodeDeploy redeploys **the last known good revision as a new deployment** (not a restored version)
+### Troubleshooting
+- Time on EC2 instances and CodeDeploy must match or an `InvalidSignatureException – Signature expired: [time] is now earlier than [time]` error will occure
+## 🎡 AWS CodeStar
+### What is it?
+- An integrated solution that groups
+  - GitHub
+  - CodeCommit
+  - CodeBuild
+  - CodeDeploy
+  - CloudFormation
+  - CodePipeline
+  - CloudWatch
+### Why use it?
+- Quickly create “CICD-ready” projects for
+  - EC2
+  - Lambda
+  - Elastic Beanstalk
+### Note
+- Limited Customization
+## 🎡 AWS CodeArtifact
+### What is it?
+- A secure, scalable, and cost-effective artifact management for software development
+- Store and retrieve dependencies
+### Why use it?
+- Developers and CodeBuild can then retrieve dependencies straight from CodeArtifact
+- Developers can build, push, and share artifacts
+### EventBridge Integration
+- Event is created when a Package version is
+  - Created
+  - Modified
+  - Deleted
+### Cross Account Access
+- Use Resource Policy
+- A given principal can either read **all the** packages in a repository or none of them
+### Upstream Repositories
+- Allows a package manager client to access the packages that are contained in more than one repository using a single repository endpoint
+- Up to 10 Upstream Repositories
+- Only one external connection
+### Storage
+- Deduplicated Storage
+  - Asset only needs to be stored once in a domain
+  - Even if it's available in many repositories (only pay once for storage)
+- Fast Copying
+  - Only metadata record are updated when you pull packages from an Upstream CodeArtifact Repository into a Downstream
+- Easy Sharing Across Repositories and Teams
+  - All the assets and metadata in a domain are encrypted with a single AWS KMS Key
+- Apply Policy Across Multiple Repositories – 
+  - Domain administrator can apply policy across the domain such as:
+    - Restricting which accounts have access to repositories in the domain
+    - Who can configure connections to public repositories to use as sources of packages
+## 🎡 Amazon CodeGuru
+### CodeGuru Reviewer
+- Automated code reviews for static code analysis (development)
+### CodeGuru Profiler
+- Visibility/recommendations about application performance during runtime (production)

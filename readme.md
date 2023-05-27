@@ -4357,13 +4357,13 @@ describe("StateMachineStack", ()=>{
 ```
 # 2️⃣7️⃣ Cognito: Cognito User Pools, Cognito Identity Pools, and Cognito Sync
 ## 🔐 Cognito User Pools vs Identity Pools
-| Cognito User Pools<br>(Authentication = Identity Verification) | Cognito Identity Pools<br>(Authorization = Access Control)   |
-|------------------------------------------------------------|---------------------------------------------------------|
-|Database of users for your web and mobile application     |Obtain AWS credentials for your users                  |
-|Allows federating logins through Public Social, OIDC, SAML |Users can login through Public Social, OIDC, SAML & Cognito User Pools |
-|Customizable hosted UI for authentication (including the logo) |Users can be unauthenticated (guests) |
-|Triggers with AWS Lambda during the authentication flow |Users are mapped to IAM roles & policies, can leverage policy variables |
-|Ability to adapt the sign-in experience to different risk levels (MFA, adaptive authentication, etc.) | |
+| Cognito User Pools<br>(Authentication = Identity Verification)                                        | Cognito Identity Pools<br>(Authorization = Access Control)              |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Database of users for your web and mobile application                                                 | Obtain AWS credentials for your users                                   |
+| Allows federating logins through Public Social, OIDC, SAML                                            | Users can login through Public Social, OIDC, SAML & Cognito User Pools  |
+| Customizable hosted UI for authentication (including the logo)                                        | Users can be unauthenticated (guests)                                   |
+| Triggers with AWS Lambda during the authentication flow                                               | Users are mapped to IAM roles & policies, can leverage policy variables |
+| Ability to adapt the sign-in experience to different risk levels (MFA, adaptive authentication, etc.) |                                                                         |
 ## 🔐 Cognito vs IAM
 ### Cognito Use Cases Are
 - Hundreds of users
@@ -4439,3 +4439,225 @@ describe("StateMachineStack", ()=>{
 ```
 ## 🔐 Quiz Notes
 - Cognito Sync is deprecated you can use AWS AppSync
+# 2️⃣8️⃣ Other Serverless: Step Functions & AppSync
+## 🪜 Step Functions
+### What is it?
+- Model your workflows as state machines (one per workflow)
+  - Order fulfillment
+  - Data processing
+  - Web applications
+  - Any workflow
+- Start workflow with
+  - SDK call
+  - API
+  - Gateway
+  - Event Bridge (CloudWatch Event)
+## 🪜 Step Functions - States
+### What is it?
+- A task is a state in a workflow that represents a single unit of work that another AWS service performs
+### State Types
+- **Choice** State - Test for a condition to send to a branch (or default branch)
+- **Fail** or **Succeed** State - Stop execution with failure or success
+- **Pass** State - Simply pass its input to its output or inject some fixed data, without performing work.
+- **Wait** State - Provide a delay for a certain amount of time or until a specified time/date.
+- **Map** State - Dynamically iterate steps.’
+- **Parallel** State - Begin parallel branches of execution (_important_)
+## 🪜 Step Functions - Error Handling
+### Error Reasons
+- State machine definition issues (for example, no matching rule in a Choice state)
+- Task failures (for example, an exception in a Lambda function)
+- Transient issues (for example, network partition events)
+### Retry & Catch
+- Use **Retry** to retry failed state (_Evaluated from top to bottom_)
+  - `ErrorEquals`: match a specific kind of error
+  - `IntervalSeconds`: initial delay before retrying
+  - `BackoffRate`: multiple the delay after each retry
+  - `MaxAttempts`: default to 3, set to 0 for never retried
+- Use **Catch** to transition to failure path (_When max attempts are reached, the Catch kicks in_)
+  - `ErrorEquals`: match a specific kind of error
+  - `Next`: State to send to
+  - `ResultPath` - A path that determines what input is sent to the state specified in the Next field (_important_)
+    ```JSON
+    {
+      "HelloWorld":{
+        "Type": "Task",
+        "Resource": "arn:aws:lambda:...",
+        "Catch":[
+          {
+            "ErrorEquals": ["States.ALL"], ⬅️
+            "Next": "NextTaskName", ⬅️
+            "ResultPath": "$.error" ⬅️
+          }
+        ]
+      }
+    }
+    ```
+### Error Codes
+- `States.ALL` : matches any error name
+- `States.Timeout`: Task ran longer than TimeoutSeconds or no heartbeat received
+- `States.TaskFailed`: execution failure
+- `States.Permissions`: insufficient privileges to execute code
+- \+ any other error defined inside the state by the developer
+## 🪜 Step Functions - Wait for Task Token
+### What it does?
+- Allows you to pause Step Functions during a Task until a Task Token is returned
+- **Pushes** data to run an event and wait for result
+### How it works?
+-  Append `.waitForTaskToken` to the Resource field to tell Step Functions to wait for the Task Token to be returned
+    ```JSON
+    "Resource": "arn:aws:states::sqs:sendMessage.waitForTaskToken"
+    ```
+- Task will pause until it receives that Task Token back with a `SendTaskSuccess` or `SendTaskFailure` API cal
+## 🪜 Step Functions - Activity Tasks
+- Activity Worker **poll** for a Task using `GetActivityTask` API
+- After Activity Worker completes its work, it sends a response of its success/failure using `SendTaskSuccess` or `SendTaskFailure`
+### Keep Task Alive **DO**
+- Configure how long a task can wait by setting `TimeoutSeconds`
+- Periodically send a **heartbeat** from your **Activity Worker** using `SendTaskHeartBeat` within the time you set in `HeartBeatSeconds`
+### Keep Task Alive **DON'T**
+- Configure a long TimeoutSeconds and actively sending a heartbeat
+- This will cause the Activity Task to run up to 1 year
+## 🪜 Step Functions - Standard vs Express
+| Feature           | Standard                                           | Express                                                      |
+| ----------------- | -------------------------------------------------- | ------------------------------------------------------------ |
+| Max. Duration     | Up to 1 year                                       | Up to 5 minutes                                              |
+| Execution Model   | Exactly-once Execution                             | Async / Sync                                                 |
+| Execution Rate    | Over 2000 / second                                 | Over 100,000 / second                                        |
+| Execution History | Up to 90 days or using CloudWatch                  | CloudWatch Logs                                              |
+| Pricing           | # of State Transitions                             | # of executions, duration, and memory consumption            |
+| Use Cases         | Non-idempotent actions (e.g., processing Payments) | IoT data ingestion, streaming data, mobile app backends, ... |
+### Express Sync vs Async
+
+| Async                                                            | Sync                                                             |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Doesn’t wait for Workflow to complete (get results from CW Logs) | Wait for Workflow to complete                                    |
+| You don’t need an immediate response (e.g., messaging services)  | You need an immediate response (e.g., orchestrate microservices) |
+| Must manage idempotence                                          | Can be invoked from API Gateway or Lambda function               |
+## 🪜 AppSync
+### What is it?
+- AWS AppSync is a fully managed service that makes it easy to develop GraphQL APIs by handling the heavy lifting of securely connecting to data sources like DynamoDB, Lambda, and more
+- Retrieve data in **real-time** with **WebSocket** or MQTT on WebSocket
+- It all starts with uploading one GraphQL schema
+### Security
+- **API_KEY**
+- **AWS_IAM**: IAM users / roles / cross-account access
+- **OPENID_CONNECT**: OpenID Connect provider / JSON Web Token
+- **AMAZON_COGNITO_USER_POOLS**
+- For **custom domain** & **HTTPS**, use **CloudFront** in front of AppSync
+## 🪜 Amplify
+### What is it? 
+- Set of tools to get started with creating mobile and web applications
+### features
+- Authentication
+  - **Amazon Cognito**
+  - Pre-built UI components
+  - Support MFA, Social Sign-in
+- Datastore
+  - Amazon **DynamoDB**
+  - Powered by **GraphQL**
+  - **Automatic synchronization** to the cloud without complex code
+  - Visual data modeling
+### Hosting
+- Front End
+  - Build
+  - Deploy to CloudFront
+- Back End
+  - Build
+  - Deploy to Amplify
+### End-to-End (E2E) Testing
+- Use the test step to run any test commands at build time (**amplify.yml**)
+- Integrated with Cypress testing framework
+# 2️⃣9️⃣ Advancaed Identity
+## 🔏 Security Token Service (STS)
+AWS STS (Security Token Service) allows you to get cross-account access through the creation of an IAM Role in your AWS account authorized to assume an IAM Role in another AWS account
+- `AssumeRole`
+- `GetSessionToken`
+- `GetCallerIdentity`
+- `DecodeAuthorizationMessage`
+### Assume Role
+- Define an IAM Role within your account or cross-account
+- Define which principals can access this IAM Role
+- Use AWS STS (Security Token Service) to retrieve credentials and impersonate the IAM Role you have access to (AssumeRole API)
+- Temporary credentials can be valid between 15 minutes to 1 hour
+### STS With MFA (_important_)
+- Use `GetSessionToken` from STS
+- Appropriate IAM policy using IAM Conditions
+- `aws:MultiFactorAuthPresent:true`
+- Reminder: `GetSessionToken` returns
+  - Access ID
+  - Secret Key
+  - Session Token
+  - Expiration date
+## 🔏 Advanced IAM
+### Best Practices
+- Never use Root Credentials, enable MFA for Root Account
+- Grant Least Privilege
+- Each Group / User / Role should only have the minimum level of permission it needs
+- Never grant a policy with “*” access to a service
+- Monitor API calls made by a user in CloudTrail (especially Denied ones)
+- Never ever ever store IAM key credentials on any machine but a personal computer or on-premise server
+- On premise server best practice is to call STS to obtain temporary security credentials
+- EC2 machines should have their own roles
+- Lambda functions should have their own roles
+- ECS Tasks should have their own roles (ECS_ENABLE_TASK_IAM_ROLE=true)
+- CodeBuild should have its own service role
+- Create a least-privileged role for any service that requires it
+- Create a role per application / lambda function (do not reuse roles)
+### Cross Account Access
+- Define an IAM Role for another account to access
+- Define which accounts can access this IAM Role
+- Use AWS STS (Security Token Service) to retrieve credentials and impersonate the IAM Role you have access to (AssumeRole API)
+- Temporary credentials can be valid between 15 minutes to 1 hour
+### Authorization Model Evaluation of Policies
+1. If there’s an explicit **DENY** > end decision and **DENY**
+2. If there’s an **ALLOW** > end decision with **ALLOW**
+3. Else **DENY**
+### IAM Policies & S3 Bucket Policies
+- When evaluating if an IAM Principal can perform an operation X on a bucket, **the union** of its assigned IAM Policies and S3 Bucket Policies **will be evaluated**.
+### Dynamic Policies
+- Leverage the special policy variable ${aws:username}
+### Inline vs Manage Policies
+- AWS Managed Policy
+  - Maintained by AWS
+  - Good for power users and administrators
+  - Updated in case of new services / new APIs
+- Customer Managed Policy
+  - Best Practice, re-usable, can be applied to many principals
+  - Version Controlled + rollback, central change management
+- Inline
+  - Strict one-to-one relationship between policy and principal
+  - Policy is deleted if you delete the IAM principal
+### Grant User Permission to Pass a Role to AWS Service
+- The use who wants to assign a Role that allows a service to perform an action needs the IAM permission `iam:PassRole`
+- It often comes with `iam:GetRole` to **view the role being passed**
+  ```JSON
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action":[
+          "ec2:*"
+        ],
+        "Resource": "*"
+      },
+      {
+        "Effect": "Allow",
+        "Action": "iam:PassRole", ⬅️
+        "Resource": "arn:aws:iam:42315231:role/S3Access",
+      }
+    ]
+  }
+  ```
+- Can a role be passed to any service?
+  - **No**: Roles can only be passed to what their **trust** allows
+## 🔏 AWS Active Directory Services
+### AWS Managed Microsoft AD
+- Create your own AD in AWS, manage users locally, **supports MFA**
+- Establish “trust” connections with your on-premise AD
+### AD Connector
+- Directory Gateway (**proxy**) to redirect to on-premise AD, supports MFA
+- Users are managed on the on-premise AD
+### Simple AD
+- AD-compatible managed directory on AWS
+- **Cannot** be joined with on-premise AD

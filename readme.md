@@ -4661,3 +4661,99 @@ AWS STS (Security Token Service) allows you to get cross-account access through 
 ### Simple AD
 - AD-compatible managed directory on AWS
 - **Cannot** be joined with on-premise AD
+# 3️⃣0️⃣ AWS Security & Encryption: KMS, Encryption SDK, SSM Parameter Store, IAM & STS
+- KMS keys can be symmetric or asymmetric. Symmetric KMS key represents a 256-bit key used for encryption and decryption. An asymmetric KMS key represents an RSA key pair used for encryption and decryption or signing and verification, but not both. Or it represents an elliptic curve (ECC) key pair used for signing and verification.
+- SM Parameters Store can be used to store secrets and has built-in version tracking capability. Each time you edit the value of a parameter, SSM Parameter Store creates a new version of the parameter and retains the previous versions. You can view the details, including the values, of all versions in a parameter's history.
+- Use Envelope Encryption if you want to encrypt > 4 KB of data. `GenerateDataKey`
+- Because the bucket encrypted using SSE:KMS, you must give permissions to the EC2 instance to access the KMS Keys and to make decrypt operations.
+- Encrypt CloudWatch Log Group with KMS key using `associate-kms-key`
+- Which IAM policy condition allows you to enforce SSL requests to objects stored in your S3 bucket? `aws:SecureTransport`
+# 3️⃣1️⃣ AWS Other Services
+- AWS SES
+  - Send Emails to people using
+    - SMTP
+    - AWS SDK
+  - Receive emails
+    - S3
+    - SNS
+    - Lambda
+  - Integrate with IAM for allowing to send emails
+- Amazon Open Search Service
+  - Search any field on DynamoDB
+    1. CRUD on DynamoDB Table
+    2. DynamoDB Stream
+    3. Lambda Function
+    4. Amazon OpenSearch
+    5. API to Search items
+    6. API to retrieve item from DynamoDB by id 
+  - CloudWatch Logs
+    1. CloudWatch Lops
+    2. Subscription Filter
+    3. Lambda Function (real-time) / Kinesis Data Firehose (near real-time)
+    4. Amazon OpenSearch
+  - Kinesis Data Streams
+    1. Kinesis Data Streams
+    2. Lambda Function (real-time) / Kinesis Data Firehose (near real-time)
+    3. Lambda Function (data transformation)
+    4. Amazon OpenSearch 
+  - Modes
+    - Managed Cluster
+    - Serverless Cluster
+  - No native support to SQL
+    - Can be enabled via a plugin
+- Amazon Athena (Business Intelligence / Analytics)
+  - Serverless query service to analyze data stored in Amazon S3
+  - Use SQL language
+  - Supports
+    - CSV
+    - JSON
+    - ORC
+    - Avro
+    - Parquet
+  - Use with Quicksight for reporting/dashboards
+  - Improve Performance
+    - Use columnar data for cost-saving
+      - Apache Parquet / ORC
+      - Use Glue to convert data to Parquet / ORC
+    - Compress data
+      - bzip2
+      - gzip
+      - lz4
+    - Partition
+      - The more partitions the better the performance
+      - The more fubfolders the easier to retrieve data
+    - Use bigger files > 128MB
+    - Federated Query
+      - Use Lambda as Data Source Connector
+      - Run queries across data stored in relational/non-relational object
+      - Store results in Amazon S3
+- Amazon Managed Streaming for Apache Kafka (MSK)
+  - Alternative to Amazon Kinesis
+  - Managed Apache Kafka on AWS
+  - Data is stored on EBS volumes as long as you want
+
+    | Kinesis Data Streams      | Amazon MSK                             |
+    | ------------------------- | -------------------------------------- |
+    | 1MB message limit size    | 1MB default (can configure for higher) |
+    | Data Streams with Shards  | Kafka Topics with Partitions           |
+    | Shard Splitting & Merging | Can only add partitions to a topic     |
+    | TLS In-flight encryption  | PLAINTEXT or TLS In-flight encryption  |
+    | KMS at-rest encryption    | KSM at-rest encryption                 |
+- Amazon Certificate Manager (ACM)
+  - Easily provision and manage SSL/TLS Certificates
+  - Integrates with
+    - Elastic Load Balancer
+    - CloudFront Distribution
+    - APIs on API Gateway
+- AWS AppConfig
+  - Configure, validate, and deploy dynamic configurations
+- Deploy dynamic configuration changes to your  applications independently of any code deployments
+  - You don’t need to restart the application
+- Feature flags, application tuning, allow/block listing…
+- Use with apps on EC2 instances, Lambda, ECS, EKS…
+- Gradually deploy the configuration changes and rollback if issues occur
+- Validate configuration changes before deployment using:
+  - JSON Schema (syntactic check) or
+  - Lambda Function
+- AWS Fault Injection Simulator (FIS)
+  - To test your AWS resources against failures, you should use the AWS Fault Injection Simulator (FIS) service. AWS Fault Injection Simulator allows you to proactively test the resilience of your applications and infrastructure by injecting various types of failures and disruptions into your AWS environment. It helps you identify weaknesses, validate your recovery strategies, and improve the overall reliability of your AWS resources.

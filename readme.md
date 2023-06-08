@@ -3635,12 +3635,12 @@ DynamoDB is made of Tables
 - Client later can search for items in DynamoDB and fetch the ones he wants from S3
 ## 🧱 DynamoDB Operations (_important_)
 ### Table Cleanup
-- Option 1 (good)
+- Option 1 (bad)
   - `Scan` + `DeleteItem`
   - VERY Slow
   - Consumes RCU & WCU
   - EXPENSIVE
-- Option 2 (bad)
+- Option 2 (good)
   - `DropTable` + `Recreate` table
   - Fast
   - Efficient
